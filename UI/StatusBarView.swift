@@ -112,69 +112,8 @@ private struct ConnectedView: View {
                 .padding(.horizontal, 16)
             }
 
-            // EQ, Bass Boost & Crossfeed
+            // EQ & Crossfeed
             EQSection(controller: controller)
-
-            // Call Transparency (sidetone)
-            HStack {
-                Text("Call Transparency")
-                    .font(.callout)
-                Spacer()
-                Toggle("", isOn: Binding(
-                    get: { controller.sidetoneLevel > 0 },
-                    set: { on in
-                        let level = on ? 2 : 0
-                        controller.sidetoneLevel = level
-                        controller.setSidetone(level)
-                    }
-                ))
-                .toggleStyle(.switch)
-                .controlSize(.small)
-            }
-            .tooltip("Hear your own voice during phone calls (sidetone)")
-            .padding(.horizontal, 16)
-
-            if controller.sidetoneLevel > 0 {
-                Picker("", selection: Binding(
-                    get: { controller.sidetoneLevel },
-                    set: { level in
-                        controller.sidetoneLevel = level
-                        controller.setSidetone(level)
-                    }
-                )) {
-                    Text("1").tag(1)
-                    Text("2").tag(2)
-                    Text("3").tag(3)
-                    Text("4").tag(4)
-                }
-                .pickerStyle(.segmented)
-                .padding(.horizontal, 16)
-
-                HStack {
-                    Text("Auto-Pause")
-                        .font(.callout)
-                    Spacer()
-                    Toggle("", isOn: Binding(
-                        get: { controller.autoPauseEnabled },
-                        set: { on in Task { await controller.setAutoPause(on) } }
-                    ))
-                    .toggleStyle(.switch)
-                    .controlSize(.small)
-                }
-                .tooltip("Pause audio when Call Transparency is enabled")
-                .padding(.horizontal, 16)
-            }
-
-            Divider()
-
-            // Settings toggles
-            SettingsSection(controller: controller)
-
-            // Connection management
-            if !controller.pairedDevices.isEmpty {
-                Divider()
-                ConnectionSection(controller: controller)
-            }
 
             Divider()
 
@@ -258,26 +197,6 @@ private struct EQSection: View {
     @ObservedObject var controller: HeadphoneController
 
     var body: some View {
-        HStack {
-            Text("Podcast Mode")
-                .font(.callout)
-            Spacer()
-            Toggle("", isOn: Binding(
-                get: { controller.podcastModeEnabled },
-                set: { on in Task {
-                    await controller.setPodcastMode(on)
-                    if !on {
-                        controller.lockEQ(preset: controller.eqPreset)
-                        await controller.sendEQBands(controller.eqPreset)
-                    }
-                }}
-            ))
-            .toggleStyle(.switch)
-            .controlSize(.small)
-        }
-        .tooltip("Audio processing optimized for speech and podcasts")
-        .padding(.horizontal, 16)
-
         if !controller.podcastModeEnabled {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Equalizer")
@@ -302,6 +221,9 @@ private struct EQSection: View {
             }
             .padding(.horizontal, 16)
 
+            EQBandSliders(controller: controller)
+                .padding(.horizontal, 16)
+
             HStack {
                 Text("Bass Boost")
                     .font(.callout)
@@ -315,6 +237,11 @@ private struct EQSection: View {
             }
             .tooltip("Enhanced low-frequency response")
             .padding(.horizontal, 16)
+        } else {
+            Text("Podcast Mode")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 16)
         }
 
         VStack(alignment: .leading, spacing: 4) {
@@ -335,146 +262,97 @@ private struct EQSection: View {
     }
 }
 
-// MARK: - Settings Section
+// MARK: - EQ Band Sliders
 
-private struct SettingsSection: View {
+private struct EQBandSliders: View {
     @ObservedObject var controller: HeadphoneController
 
+    private static let bandLabels = ["50", "250", "800", "3k", "8k"]
+
     var body: some View {
-        HStack {
-            Text("On-Head Detection")
-                .font(.callout)
-            Spacer()
-            Toggle("", isOn: Binding(
-                get: { controller.onHeadDetectionEnabled },
-                set: { on in Task { await controller.setOnHeadDetection(on) } }
-            ))
-            .toggleStyle(.switch)
-            .controlSize(.small)
-        }
-        .tooltip("Detects when headphones are worn or removed")
-        .padding(.horizontal, 16)
+        HStack(alignment: .bottom, spacing: 0) {
+            ForEach(0..<5, id: \.self) { band in
+                VStack(spacing: 2) {
+                    Text(formatGain(controller.eqGains[band]))
+                        .font(.system(size: 9, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 36)
 
-        HStack {
-            Text("Smart Pause")
-                .font(.callout)
-            Spacer()
-            Toggle("", isOn: Binding(
-                get: { controller.smartPauseEnabled },
-                set: { on in Task { await controller.setSmartPause(on) } }
-            ))
-            .toggleStyle(.switch)
-            .controlSize(.small)
-            .disabled(!controller.onHeadDetectionEnabled)
-        }
-        .opacity(controller.onHeadDetectionEnabled ? 1 : 0.5)
-        .tooltip(controller.onHeadDetectionEnabled
-            ? "Pauses audio when headphones are removed"
-            : "Requires On-Head Detection to be enabled")
-        .padding(.horizontal, 16)
+                    VerticalSlider(
+                        value: Binding(
+                            get: { controller.eqGains[band] },
+                            set: { controller.setEQBand(band, gain: $0) }
+                        ),
+                        range: -6.0...6.0
+                    )
+                    .frame(height: 100)
 
-        HStack {
-            Text("Auto-Answer Calls")
-                .font(.callout)
-            Spacer()
-            Toggle("", isOn: Binding(
-                get: { controller.autoCallEnabled },
-                set: { on in Task { await controller.setAutoCall(on) } }
-            ))
-            .toggleStyle(.switch)
-            .controlSize(.small)
-            .disabled(!controller.onHeadDetectionEnabled)
-        }
-        .opacity(controller.onHeadDetectionEnabled ? 1 : 0.5)
-        .tooltip(controller.onHeadDetectionEnabled
-            ? "Automatically answers incoming calls after a delay"
-            : "Requires On-Head Detection to be enabled")
-        .padding(.horizontal, 16)
-
-        HStack {
-            Text("Comfort Call")
-                .font(.callout)
-            Spacer()
-            Toggle("", isOn: Binding(
-                get: { controller.comfortCallEnabled },
-                set: { on in Task { await controller.setComfortCall(on) } }
-            ))
-            .toggleStyle(.switch)
-            .controlSize(.small)
-        }
-        .tooltip("Automatically adjusts audio when a phone call starts")
-        .padding(.horizontal, 16)
-
-        HStack {
-            Text("Auto Power Off")
-                .font(.callout)
-            Spacer()
-            Picker("", selection: Binding(
-                get: { controller.autoPowerOffMinutes },
-                set: { mins in Task { await controller.setAutoPowerOff(minutes: mins) } }
-            )) {
-                Text("Off").tag(0)
-                Text("15 min").tag(15)
-                Text("30 min").tag(30)
-                Text("60 min").tag(60)
+                    Text(Self.bandLabels[band])
+                        .font(.system(size: 9))
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity)
             }
-            .pickerStyle(.menu)
-            .labelsHidden()
-            .frame(width: 90)
-            .disabled(!controller.onHeadDetectionEnabled)
         }
-        .opacity(controller.onHeadDetectionEnabled ? 1 : 0.5)
-        .tooltip(controller.onHeadDetectionEnabled
-            ? "Turns off headphones after idle time to save battery"
-            : "Requires On-Head Detection to be enabled")
-        .padding(.horizontal, 16)
+    }
+
+    private func formatGain(_ db: Double) -> String {
+        if db == 0 { return "0" }
+        return String(format: "%+.1f", db)
     }
 }
 
-// MARK: - Connection Section
-
-private struct ConnectionSection: View {
-    @ObservedObject var controller: HeadphoneController
+private struct VerticalSlider: View {
+    @Binding var value: Double
+    let range: ClosedRange<Double>
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack {
-                Text("Connections")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Spacer()
-                if controller.maxBTConnections > 1 {
-                    Text("Multipoint")
-                        .font(.caption2)
-                        .foregroundStyle(.tertiary)
-                }
-            }
-            .padding(.horizontal, 16)
+        GeometryReader { geo in
+            let height = geo.size.height
+            let span = range.upperBound - range.lowerBound
+            let normalized = (value - range.lowerBound) / span
+            let y = height * (1 - normalized)
 
-            ForEach(controller.pairedDevices) { device in
-                HStack(spacing: 6) {
-                    Image(systemName: device.index == controller.ownDeviceIndex
-                          ? "desktopcomputer" : "iphone")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .frame(width: 14)
-                    Text(device.name.isEmpty ? "Device \(device.index)" : device.name)
-                        .font(.caption)
-                    if device.index == controller.ownDeviceIndex {
-                        Text("This device")
-                            .font(.caption2)
-                            .foregroundStyle(.tertiary)
-                    }
-                    Spacer()
-                    if device.isConnected {
-                        Image(systemName: "checkmark")
-                            .font(.caption2)
-                            .foregroundStyle(.blue)
-                    }
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 1)
+            ZStack(alignment: .bottom) {
+                // Track
+                RoundedRectangle(cornerRadius: 1.5)
+                    .fill(.quaternary)
+                    .frame(width: 3)
+                    .frame(maxHeight: .infinity)
+
+                // Center line
+                RoundedRectangle(cornerRadius: 0.5)
+                    .fill(.tertiary)
+                    .frame(width: 9, height: 1)
+                    .offset(y: -height / 2)
+
+                // Filled portion from center
+                let centerY = height / 2
+                let fillHeight = abs(y - centerY)
+                RoundedRectangle(cornerRadius: 1.5)
+                    .fill(.blue)
+                    .frame(width: 3, height: fillHeight)
+                    .offset(y: value >= 0 ? -(centerY) : -(y))
+
+                // Thumb
+                Circle()
+                    .fill(.white)
+                    .shadow(color: .black.opacity(0.2), radius: 1, y: 1)
+                    .frame(width: 14, height: 14)
+                    .offset(y: -(height - y))
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { drag in
+                        let fraction = 1 - (drag.location.y / height)
+                        let clamped = min(max(fraction, 0), 1)
+                        let raw = range.lowerBound + span * clamped
+                        // Snap to 0.5 dB steps
+                        value = (raw * 2).rounded() / 2
+                    }
+            )
         }
     }
 }
@@ -500,6 +378,14 @@ private struct FooterView: View {
                 }
             }
             Spacer()
+            Button {
+                NotificationCenter.default.post(name: .openSettings, object: nil)
+            } label: {
+                Image(systemName: "gearshape")
+            }
+            .buttonStyle(.borderless)
+            .controlSize(.small)
+            .foregroundStyle(.secondary)
             Button("Disconnect") {
                 bluetooth.disconnect()
             }
@@ -510,6 +396,10 @@ private struct FooterView: View {
         }
         .padding(.horizontal, 16)
     }
+}
+
+extension Notification.Name {
+    static let openSettings = Notification.Name("openSettings")
 }
 
 // MARK: - Battery Badge

@@ -7,10 +7,11 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		48F185C410924AAC23D94044 /* GAIAProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B15D54638B3358EF6E43CA9 /* GAIAProtocol.swift */; };
 		4C89EB2F9F389E69E5F7EA4D /* StatusBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C800B4A314F01AFF9A603E3F /* StatusBarView.swift */; };
 		802E20CB841C6B52FF041864 /* BluetoothManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = E170740EEF5E035DBF9E758D /* BluetoothManager.swift */; };
 		9095069AAAF75001F34F8BD5 /* HeadphoneController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D43BB7830237A2173F8A61D6 /* HeadphoneController.swift */; };
-		931E75494D8D2E30C472DB09 /* GAIAProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F8EDA22DD857CE2E780097B /* GAIAProtocol.swift */; };
+		C43319859A151F5D54B80910 /* SettingsWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43CAF6C6DD4D4C6194BA4BC6 /* SettingsWindow.swift */; };
 		C94E0F86BD91C15FA26C8FC5 /* IOBluetooth.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2812FD6395C926D15DB7CBFE /* IOBluetooth.framework */; };
 		CEC52D738381EABEFFBD18A4 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF9F40CCE91F32109F3B1CEE /* AppDelegate.swift */; };
 		F96CDC8833066AC884F56D7B /* HDB630ControlApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6288554D29F37F54ABAD731C /* HDB630ControlApp.swift */; };
@@ -18,8 +19,9 @@
 
 /* Begin PBXFileReference section */
 		2812FD6395C926D15DB7CBFE /* IOBluetooth.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOBluetooth.framework; path = System/Library/Frameworks/IOBluetooth.framework; sourceTree = SDKROOT; };
+		43CAF6C6DD4D4C6194BA4BC6 /* SettingsWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsWindow.swift; sourceTree = "<group>"; };
 		6288554D29F37F54ABAD731C /* HDB630ControlApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HDB630ControlApp.swift; sourceTree = "<group>"; };
-		9F8EDA22DD857CE2E780097B /* GAIAProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GAIAProtocol.swift; sourceTree = "<group>"; };
+		8B15D54638B3358EF6E43CA9 /* GAIAProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GAIAProtocol.swift; sourceTree = "<group>"; };
 		C800B4A314F01AFF9A603E3F /* StatusBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusBarView.swift; sourceTree = "<group>"; };
 		D43BB7830237A2173F8A61D6 /* HeadphoneController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeadphoneController.swift; sourceTree = "<group>"; };
 		DF9F40CCE91F32109F3B1CEE /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
@@ -71,8 +73,8 @@
 			isa = PBXGroup;
 			children = (
 				E170740EEF5E035DBF9E758D /* BluetoothManager.swift */,
+				8B15D54638B3358EF6E43CA9 /* GAIAProtocol.swift */,
 				D43BB7830237A2173F8A61D6 /* HeadphoneController.swift */,
-				9F8EDA22DD857CE2E780097B /* GAIAProtocol.swift */,
 			);
 			path = Bluetooth;
 			sourceTree = "<group>";
@@ -88,6 +90,7 @@
 		DCAA5049E00AAD6C2A0D560F /* UI */ = {
 			isa = PBXGroup;
 			children = (
+				43CAF6C6DD4D4C6194BA4BC6 /* SettingsWindow.swift */,
 				C800B4A314F01AFF9A603E3F /* StatusBarView.swift */,
 			);
 			path = UI;
@@ -149,9 +152,10 @@
 			files = (
 				CEC52D738381EABEFFBD18A4 /* AppDelegate.swift in Sources */,
 				802E20CB841C6B52FF041864 /* BluetoothManager.swift in Sources */,
+				48F185C410924AAC23D94044 /* GAIAProtocol.swift in Sources */,
 				F96CDC8833066AC884F56D7B /* HDB630ControlApp.swift in Sources */,
 				9095069AAAF75001F34F8BD5 /* HeadphoneController.swift in Sources */,
-				931E75494D8D2E30C472DB09 /* GAIAProtocol.swift in Sources */,
+				C43319859A151F5D54B80910 /* SettingsWindow.swift in Sources */,
 				4C89EB2F9F389E69E5F7EA4D /* StatusBarView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

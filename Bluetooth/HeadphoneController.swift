@@ -94,9 +94,11 @@ final class HeadphoneController: ObservableObject {
     @Published var comfortCallEnabled: Bool = false
     @Published var autoPowerOffMinutes: Int = 0  // 0 = disabled
     @Published var eqPreset: EQPreset = .neutral
+    @Published var eqGains: [Double] = [0, 0, 0, 0, 0]  // dB, range -6.0 to +6.0
     var eqLocked: Bool { Date() < eqLockUntil }
     private var eqLockUntil: Date = .distantPast
     private var eqDebounceTask: Task<Void, Never>?
+    private var bandDebounceTasks: [Int: Task<Void, Never>] = [:]
     @Published var bassBoostEnabled: Bool = false
     @Published var podcastModeEnabled: Bool = false
     @Published var crossfeedLevel: Int = 2  // raw: 0=low, 1=high, 2=off
@@ -426,12 +428,14 @@ final class HeadphoneController: ObservableObject {
             }
         }
         guard !eqLocked else { return }
+        eqGains = gains.map { Double($0) / 10.0 }
         eqPreset = EQPreset.matching(gains: gains)
     }
 
     /// Call synchronously before the async Task to prevent notification races.
     func lockEQ(preset: EQPreset) {
         eqPreset = preset
+        eqGains = preset.gains.map { Double($0) / 10.0 }
         eqLockUntil = Date().addingTimeInterval(5)
     }
 
@@ -441,6 +445,22 @@ final class HeadphoneController: ObservableObject {
             _ = await send(vendor: .sennheiser, command: GAIAProtocol.cmdSetEQBand, payload: payload)
         }
         eqLockUntil = Date().addingTimeInterval(1) // brief buffer for in-flight notifications
+    }
+
+    func setEQBand(_ band: Int, gain: Double) {
+        guard band >= 0, band < 5 else { return }
+        eqGains[band] = gain
+        eqPreset = .custom
+        eqLockUntil = Date().addingTimeInterval(2)
+
+        bandDebounceTasks[band]?.cancel()
+        bandDebounceTasks[band] = Task {
+            try? await Task.sleep(nanoseconds: 100_000_000) // 100ms debounce
+            guard !Task.isCancelled else { return }
+            let raw = Int8(clamping: Int(gain * 10))
+            _ = await send(vendor: .sennheiser, command: GAIAProtocol.cmdSetEQBand, payload: [UInt8(band), UInt8(bitPattern: raw)])
+            eqLockUntil = Date().addingTimeInterval(1)
+        }
     }
 
     // MARK: - Bass Boost
@@ -598,6 +618,7 @@ final class HeadphoneController: ObservableObject {
                 eqDebounceTask = Task {
                     try? await Task.sleep(nanoseconds: 300_000_000)
                     guard !Task.isCancelled, !eqLocked else { return }
+                    eqGains = gains.map { Double($0) / 10.0 }
                     eqPreset = EQPreset.matching(gains: gains)
                 }
             }
