@@ -134,7 +134,7 @@ enum PEQFilterType: Int, CaseIterable, Identifiable {
         case .highShelfSecondOrder: return "HS 2nd"
         case .lowShelfSecondOrder: return "LS 2nd"
         case .tiltSecondOrder: return "Tilt 2nd"
-        case .peq: return "PEQ"
+        case .peq: return "Bell"
         case .bypass: return "Bypass"
         }
     }
