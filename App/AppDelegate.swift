@@ -2,11 +2,25 @@ import Cocoa
 import SwiftUI
 import Combine
 
+private class FixedWidthHostingController<Content: View>: NSHostingController<Content> {
+    private let fixedWidth: CGFloat
+    weak var popover: NSPopover?
+    init(rootView: Content, width: CGFloat) {
+        self.fixedWidth = width
+        super.init(rootView: rootView)
+    }
+    @available(*, unavailable) required init?(coder: NSCoder) { fatalError() }
+    override func viewDidLayout() {
+        super.viewDidLayout()
+        let fitting = view.fittingSize
+        let maxH: CGFloat = 700  // slightly above SwiftUI's 680 cap to include padding
+        popover?.contentSize = NSSize(width: fixedWidth, height: min(fitting.height, maxH))
+    }
+}
+
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
     private var popover: NSPopover!
-    private var settingsWindow: NSWindow?
-
     private let bluetooth = BluetoothManager()
     private var controller: HeadphoneController!
     private var cancellables = Set<AnyCancellable>()
@@ -29,12 +43,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Popover
         popover = NSPopover()
         popover.behavior = .transient
-        let hostingController = NSHostingController(
+        let hostingController = FixedWidthHostingController(
             rootView: StatusBarView(controller: controller, bluetooth: bluetooth)
-                .environmentObject(bluetooth)
+                .environmentObject(bluetooth),
+            width: 320
         )
-        hostingController.sizingOptions = .preferredContentSize
         popover.contentViewController = hostingController
+        hostingController.popover = popover
 
         // Update menu bar with battery level
         controller.$batteryLevel
@@ -79,12 +94,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.bluetooth.disconnect()
         }
 
-        NotificationCenter.default.addObserver(
-            forName: .openSettings,
-            object: nil, queue: .main
-        ) { [weak self] _ in
-            self?.openSettings()
-        }
     }
 
     @objc private func togglePopover() {
@@ -103,41 +112,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    private func openSettings() {
-        if let window = settingsWindow {
-            window.makeKeyAndOrderFront(nil)
-            NSApp.activate(ignoringOtherApps: true)
-            return
-        }
-
-        let settingsView = SettingsView(controller: controller, bluetooth: bluetooth)
-        let hostingController = NSHostingController(rootView: settingsView)
-
-        let window = NSWindow(contentViewController: hostingController)
-        window.title = "HDB 630 Settings"
-        window.styleMask = [NSWindow.StyleMask.titled, NSWindow.StyleMask.closable]
-        window.level = NSWindow.Level.floating
-        window.isReleasedWhenClosed = false
-        window.center()
-        window.makeKeyAndOrderFront(nil as Any?)
-        NSApp.activate(ignoringOtherApps: true)
-
-        settingsWindow = window
-
-        NotificationCenter.default.addObserver(
-            forName: NSWindow.willCloseNotification,
-            object: window, queue: .main
-        ) { [weak self] _ in
-            self?.settingsWindow = nil
-            self?.updatePolling()
-        }
-
-        updatePolling()
-    }
-
-    /// Poll while popover or settings window is visible.
     private var needsPolling: Bool {
-        popover.isShown || settingsWindow?.isVisible == true
+        popover.isShown
     }
 
     private func updatePolling() {

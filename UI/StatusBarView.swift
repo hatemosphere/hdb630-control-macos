@@ -28,23 +28,33 @@ private extension View {
 struct StatusBarView: View {
     @ObservedObject var controller: HeadphoneController
     @ObservedObject var bluetooth: BluetoothManager
+    @State private var showSettings = false
+
+    private static let maxHeight: CGFloat = 680
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            switch bluetooth.state {
-            case .connected:
-                ConnectedView(controller: controller, bluetooth: bluetooth)
-            case .error(let message):
-                ErrorView(message: message) {
-                    bluetooth.scanForDevices()
-                }
-            default:
-                DeviceListView(bluetooth: bluetooth) { device in
-                    bluetooth.connect(to: device)
+        ScrollView(showsIndicators: false) {
+            VStack(alignment: .leading, spacing: 0) {
+                switch bluetooth.state {
+                case .connected:
+                    if showSettings {
+                        SettingsView(controller: controller, bluetooth: bluetooth, showSettings: $showSettings)
+                    } else {
+                        ConnectedView(controller: controller, bluetooth: bluetooth, showSettings: $showSettings)
+                    }
+                case .error(let message):
+                    ErrorView(message: message) {
+                        bluetooth.scanForDevices()
+                    }
+                default:
+                    DeviceListView(bluetooth: bluetooth) { device in
+                        bluetooth.connect(to: device)
+                    }
                 }
             }
+            .frame(width: 300)
         }
-        .frame(width: 300)
+        .frame(maxHeight: Self.maxHeight)
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
         .tint(.blue)
@@ -56,6 +66,7 @@ struct StatusBarView: View {
 private struct ConnectedView: View {
     @ObservedObject var controller: HeadphoneController
     let bluetooth: BluetoothManager
+    @Binding var showSettings: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -122,7 +133,25 @@ private struct ConnectedView: View {
             }
 
             // Footer
-            FooterView(bluetooth: bluetooth)
+            HStack {
+                Spacer()
+                Button {
+                    showSettings = true
+                } label: {
+                    Image(systemName: "gearshape")
+                }
+                .buttonStyle(.borderless)
+                .controlSize(.small)
+                .foregroundStyle(.secondary)
+                Button("Disconnect") {
+                    bluetooth.disconnect()
+                }
+                .buttonStyle(.borderless)
+                .controlSize(.small)
+                .foregroundStyle(.secondary)
+                QuitButton()
+            }
+            .padding(.horizontal, 6)
         }
     }
 }
@@ -552,37 +581,6 @@ private struct VerticalSlider: View {
     }
 }
 
-// MARK: - Footer
-
-private struct FooterView: View {
-    let bluetooth: BluetoothManager
-
-    var body: some View {
-        HStack {
-            Spacer()
-            Button {
-                NotificationCenter.default.post(name: .openSettings, object: nil)
-            } label: {
-                Image(systemName: "gearshape")
-            }
-            .buttonStyle(.borderless)
-            .controlSize(.small)
-            .foregroundStyle(.secondary)
-            Button("Disconnect") {
-                bluetooth.disconnect()
-            }
-            .buttonStyle(.borderless)
-            .controlSize(.small)
-            .foregroundStyle(.secondary)
-            QuitButton()
-        }
-        .padding(.horizontal, 6)
-    }
-}
-
-extension Notification.Name {
-    static let openSettings = Notification.Name("openSettings")
-}
 
 // MARK: - Battery Badge
 
@@ -709,7 +707,7 @@ private struct ErrorView: View {
 
 // MARK: - Quit Button
 
-private struct QuitButton: View {
+struct QuitButton: View {
     @EnvironmentObject var bluetooth: BluetoothManager
 
     var body: some View {

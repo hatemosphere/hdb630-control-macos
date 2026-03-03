@@ -3,9 +3,26 @@ import SwiftUI
 struct SettingsView: View {
     @ObservedObject var controller: HeadphoneController
     @ObservedObject var bluetooth: BluetoothManager
+    @Binding var showSettings: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
+            // Header with back button
+            HStack(spacing: 6) {
+                Button {
+                    showSettings = false
+                } label: {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 12, weight: .semibold))
+                }
+                .buttonStyle(.borderless)
+                .foregroundStyle(.secondary)
+                Text("Settings")
+                    .font(.headline)
+                Spacer()
+            }
+            .padding(.horizontal, 6)
+
             // Call section
             CardSection("Call") {
                 SettingRow("Call Transparency") {
@@ -63,7 +80,7 @@ struct SettingsView: View {
             }
 
             // Settings section
-            CardSection("Settings") {
+            CardSection("General") {
                 SettingRow("On-Head Detection") {
                     Toggle("", isOn: Binding(
                         get: { controller.onHeadDetectionEnabled },
@@ -182,10 +199,19 @@ struct SettingsView: View {
                 }
             }
 
-            Spacer(minLength: 0)
+            // Footer
+            HStack {
+                Spacer()
+                Button("Disconnect") {
+                    bluetooth.disconnect()
+                }
+                .buttonStyle(.borderless)
+                .controlSize(.small)
+                .foregroundStyle(.secondary)
+                QuitButton()
+            }
+            .padding(.horizontal, 6)
         }
-        .padding(10)
-        .frame(width: 320)
     }
 }
 
