@@ -2,22 +2,6 @@ import Cocoa
 import SwiftUI
 import Combine
 
-private class FixedWidthHostingController<Content: View>: NSHostingController<Content> {
-    private let fixedWidth: CGFloat
-    weak var popover: NSPopover?
-    init(rootView: Content, width: CGFloat) {
-        self.fixedWidth = width
-        super.init(rootView: rootView)
-    }
-    @available(*, unavailable) required init?(coder: NSCoder) { fatalError() }
-    override func viewDidLayout() {
-        super.viewDidLayout()
-        let fitting = view.fittingSize
-        let maxH: CGFloat = 700  // slightly above SwiftUI's 680 cap to include padding
-        popover?.contentSize = NSSize(width: fixedWidth, height: min(fitting.height, maxH))
-    }
-}
-
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
     private var popover: NSPopover!
@@ -43,13 +27,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Popover
         popover = NSPopover()
         popover.behavior = .transient
-        let hostingController = FixedWidthHostingController(
+        let hostingController = NSHostingController(
             rootView: StatusBarView(controller: controller, bluetooth: bluetooth)
-                .environmentObject(bluetooth),
-            width: 320
+                .environmentObject(bluetooth)
         )
+        hostingController.sizingOptions = .preferredContentSize
         popover.contentViewController = hostingController
-        hostingController.popover = popover
 
         // Update menu bar with battery level
         controller.$batteryLevel
