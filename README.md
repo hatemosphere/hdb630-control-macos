@@ -34,6 +34,12 @@ cd HDB630Control && xcodegen && open HDB630Control.xcodeproj
 
 Build and run. The app appears as a headphones icon in the menu bar.
 
+To regenerate screenshots with mock data:
+```
+xcodebuild -scheme ScreenshotMock -configuration Debug build && \
+  $(xcodebuild -scheme ScreenshotMock -configuration Debug -showBuildSettings | grep -m1 BUILT_PRODUCTS_DIR | awk '{print $3}')/screenshot_mock screenshots
+```
+
 ## Project Structure
 
 ```
@@ -42,13 +48,20 @@ HDB630Control/
     AppDelegate.swift          -- Menu bar item, popover, polling
     HDB630ControlApp.swift     -- SwiftUI app entry point
   Bluetooth/
+    Models.swift               -- Shared model types (ANCState, EQPreset, etc.)
     GAIAProtocol.swift         -- GAIA v3 packet builder/parser
     BluetoothManager.swift     -- SDP lookup, RFCOMM I/O
     HeadphoneController.swift  -- Device state + all get/set commands
   UI/
-    StatusBarView.swift        -- SwiftUI popover UI
+    Components.swift           -- Shared UI components (CardSection)
+    StatusBarView.swift        -- Main popover (controls, EQ, PEQ)
+    SettingsWindow.swift       -- Settings page (call, general, device info)
 
-tools/                         -- CLI probe/test scripts used during RE
+tools/
+  MockController.swift         -- Mock stubs for screenshot generation
+  main.swift                   -- Headless screenshot renderer
+  cli_probe_commands.swift     -- CLI probe script used during RE
+
 docs/                          -- Protocol docs and RE guide
 ```
 
