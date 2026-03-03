@@ -44,6 +44,7 @@ struct StatusBarView: View {
             }
         }
         .frame(width: 300)
+        .padding(.horizontal, 10)
         .padding(.vertical, 8)
         .tint(.blue)
     }
@@ -197,51 +198,34 @@ private struct EQSection: View {
     @ObservedObject var controller: HeadphoneController
 
     var body: some View {
-        if !controller.podcastModeEnabled {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Equalizer")
-                    .font(.callout)
-                Picker("", selection: Binding(
-                    get: { controller.eqPreset },
-                    set: { preset in
-                        guard preset != .custom else { return }
-                        controller.lockEQ(preset: preset)
-                        Task { await controller.sendEQBands(preset) }
-                    }
-                )) {
-                    if controller.eqPreset == .custom {
-                        Text("Custom").tag(EQPreset.custom)
-                    }
-                    ForEach(EQPreset.builtIn) { preset in
-                        Text(preset.rawValue).tag(preset)
-                    }
-                }
-                .pickerStyle(.menu)
-                .labelsHidden()
-            }
-            .padding(.horizontal, 16)
-
-            EQBandSliders(controller: controller)
-                .padding(.horizontal, 16)
-
-            HStack {
-                Text("Bass Boost")
-                    .font(.callout)
-                Spacer()
-                Toggle("", isOn: Binding(
-                    get: { controller.bassBoostEnabled },
-                    set: { on in Task { await controller.setBassBoost(on) } }
-                ))
-                .toggleStyle(.switch)
-                .controlSize(.small)
-            }
-            .tooltip("Enhanced low-frequency response")
-            .padding(.horizontal, 16)
-        } else {
-            Text("Podcast Mode")
+        // Audio mode picker
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Audio Mode")
                 .font(.callout)
+            Picker("", selection: Binding(
+                get: { controller.audioMode },
+                set: { mode in Task { await controller.setAudioMode(mode) } }
+            )) {
+                ForEach(AudioMode.selectable) { mode in
+                    Text(mode.label).tag(mode)
+                }
+            }
+            .pickerStyle(.segmented)
+        }
+        .padding(.horizontal, 16)
+
+        switch controller.audioMode {
+        case .userEq:
+            GraphicEQControls(controller: controller)
+        case .parametricEq:
+            PEQControls(controller: controller)
+        case .podcastMode:
+            Text("Podcast mode optimizes audio for voice")
+                .font(.caption)
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 16)
+        default:
+            EmptyView()
         }
 
         VStack(alignment: .leading, spacing: 4) {
@@ -259,6 +243,241 @@ private struct EQSection: View {
         }
         .tooltip("Blends stereo channels for more natural, speaker-like sound")
         .padding(.horizontal, 16)
+    }
+}
+
+// MARK: - Graphic EQ Controls
+
+private struct GraphicEQControls: View {
+    @ObservedObject var controller: HeadphoneController
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Preset")
+                .font(.callout)
+            Picker("", selection: Binding(
+                get: { controller.eqPreset },
+                set: { preset in
+                    guard preset != .custom else { return }
+                    controller.lockEQ(preset: preset)
+                    Task { await controller.sendEQBands(preset) }
+                }
+            )) {
+                if controller.eqPreset == .custom {
+                    Text("Custom").tag(EQPreset.custom)
+                }
+                ForEach(EQPreset.builtIn) { preset in
+                    Text(preset.rawValue).tag(preset)
+                }
+            }
+            .pickerStyle(.menu)
+            .labelsHidden()
+        }
+        .padding(.horizontal, 16)
+
+        EQBandSliders(controller: controller)
+            .padding(.horizontal, 16)
+
+        HStack {
+            Text("Bass Boost")
+                .font(.callout)
+            Spacer()
+            Toggle("", isOn: Binding(
+                get: { controller.bassBoostEnabled },
+                set: { on in Task { await controller.setBassBoost(on) } }
+            ))
+            .toggleStyle(.switch)
+            .controlSize(.small)
+        }
+        .tooltip("Enhanced low-frequency response")
+        .padding(.horizontal, 16)
+    }
+}
+
+// MARK: - Parametric EQ Controls
+
+private struct PEQControls: View {
+    @ObservedObject var controller: HeadphoneController
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            // Pre-gain
+            HStack {
+                Text("Pre-Gain")
+                    .font(.callout)
+                Spacer()
+                Text(formatDB(controller.preGainDB))
+                    .font(.system(size: 10, design: .monospaced))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 44, alignment: .trailing)
+            }
+            Slider(
+                value: Binding(
+                    get: { controller.preGainDB },
+                    set: { controller.setPreGain($0) }
+                ),
+                in: controller.eqConfig.minGainDB...controller.eqConfig.maxGainDB,
+                step: 0.5
+            )
+
+            // Headroom
+            HStack {
+                Text("Headroom")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Text(formatDB(controller.headroomDB))
+                    .font(.system(size: 10, design: .monospaced))
+                    .foregroundStyle(.tertiary)
+            }
+
+            Divider()
+
+            // Per-stage controls
+            ForEach(0..<5, id: \.self) { stage in
+                PEQStageRow(controller: controller, stage: stage)
+                if stage < 4 { Divider() }
+            }
+        }
+        .padding(.horizontal, 16)
+    }
+
+    private func formatDB(_ db: Double) -> String {
+        if db == 0 { return "0.0 dB" }
+        return String(format: "%+.1f dB", db)
+    }
+}
+
+private struct PEQStageRow: View {
+    @ObservedObject var controller: HeadphoneController
+    let stage: Int
+
+    private var stageBinding: PEQStage {
+        controller.peqStages[stage]
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            // Header: stage number + filter type
+            HStack {
+                Text("Band \(stage + 1)")
+                    .font(.callout.bold())
+                Spacer()
+                Picker("", selection: Binding(
+                    get: { stageBinding.filterType },
+                    set: { type in Task { await controller.setPEQFilterType(stage, type: type) } }
+                )) {
+                    ForEach(PEQFilterType.allCases) { type in
+                        Text(type.label).tag(type)
+                    }
+                }
+                .pickerStyle(.menu)
+                .labelsHidden()
+                .frame(width: 90)
+            }
+
+            if stageBinding.filterType != .bypass {
+                // Frequency
+                HStack(spacing: 4) {
+                    Text("Freq")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .frame(width: 32, alignment: .leading)
+                    LogSlider(
+                        value: Binding(
+                            get: { Double(stageBinding.frequency) },
+                            set: { controller.setPEQFrequency(stage, hz: Int(round($0))) }
+                        ),
+                        range: 20...20000
+                    )
+                    Text(formatFreq(stageBinding.frequency))
+                        .font(.system(size: 9, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 48, alignment: .trailing)
+                }
+
+                // Q
+                HStack(spacing: 4) {
+                    Text("Q")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .frame(width: 32, alignment: .leading)
+                    Slider(
+                        value: Binding(
+                            get: { stageBinding.q },
+                            set: { controller.setPEQQ(stage, q: $0) }
+                        ),
+                        in: 0.1...10.0
+                    )
+                    Text(String(format: "%.2f", stageBinding.q))
+                        .font(.system(size: 9, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 48, alignment: .trailing)
+                }
+
+                // Gain
+                HStack(spacing: 4) {
+                    Text("Gain")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .frame(width: 32, alignment: .leading)
+                    Slider(
+                        value: Binding(
+                            get: { stageBinding.gain },
+                            set: { controller.setPEQGain(stage, db: $0) }
+                        ),
+                        in: controller.eqConfig.minGainDB...controller.eqConfig.maxGainDB,
+                        step: 0.5
+                    )
+                    Text(formatGain(stageBinding.gain))
+                        .font(.system(size: 9, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 48, alignment: .trailing)
+                }
+            }
+        }
+    }
+
+    private func formatFreq(_ hz: Int) -> String {
+        if hz >= 1000 {
+            let k = Double(hz) / 1000.0
+            return k.truncatingRemainder(dividingBy: 1) == 0
+                ? String(format: "%.0fk Hz", k)
+                : String(format: "%.1fk Hz", k)
+        }
+        return "\(hz) Hz"
+    }
+
+    private func formatGain(_ db: Double) -> String {
+        if db == 0 { return "0.0 dB" }
+        return String(format: "%+.1f dB", db)
+    }
+}
+
+// MARK: - Logarithmic Slider
+
+private struct LogSlider: View {
+    @Binding var value: Double
+    let range: ClosedRange<Double>
+
+    private var logMin: Double { log10(range.lowerBound) }
+    private var logMax: Double { log10(range.upperBound) }
+
+    private var normalizedPosition: Double {
+        get { (log10(max(value, range.lowerBound)) - logMin) / (logMax - logMin) }
+    }
+
+    var body: some View {
+        Slider(
+            value: Binding(
+                get: { normalizedPosition },
+                set: { pos in
+                    let logVal = logMin + pos * (logMax - logMin)
+                    value = round(pow(10, logVal))
+                }
+            ),
+            in: 0...1
+        )
     }
 }
 

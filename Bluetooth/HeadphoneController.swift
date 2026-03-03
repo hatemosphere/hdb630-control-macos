@@ -66,6 +66,84 @@ enum ChargingStatus: Int, Equatable {
     }
 }
 
+enum AudioMode: Int, CaseIterable, Identifiable {
+    case off = 0
+    case userEq = 1
+    case podcastMode = 2
+    case personalizedSound = 3
+    case parametricEq = 4
+    case hearingEnhancement = 5
+
+    var id: Int { rawValue }
+
+    var label: String {
+        switch self {
+        case .off: return "Off"
+        case .userEq: return "Equalizer"
+        case .podcastMode: return "Podcast"
+        case .personalizedSound: return "Personalized"
+        case .parametricEq: return "Parametric EQ"
+        case .hearingEnhancement: return "Hearing"
+        }
+    }
+
+    /// Modes the user can select in the app
+    static let selectable: [AudioMode] = [.off, .userEq, .podcastMode, .parametricEq]
+}
+
+enum PEQFilterType: Int, CaseIterable, Identifiable {
+    case gain = 0
+    case lowPassFirstOrder = 1
+    case highPassFirstOrder = 2
+    case allPassFirstOrder = 3
+    case lowShelfFirstOrder = 4
+    case highShelfFirstOrder = 5
+    case tiltFirstOrder = 6
+    case lowPassSecondOrder = 7
+    case highPassSecondOrder = 8
+    case allPassSecondOrder = 9
+    case highShelfSecondOrder = 10
+    case lowShelfSecondOrder = 11
+    case tiltSecondOrder = 12
+    case peq = 13
+    case bypass = 14
+
+    var id: Int { rawValue }
+
+    var label: String {
+        switch self {
+        case .gain: return "Gain"
+        case .lowPassFirstOrder: return "LP 1st"
+        case .highPassFirstOrder: return "HP 1st"
+        case .allPassFirstOrder: return "AP 1st"
+        case .lowShelfFirstOrder: return "LS 1st"
+        case .highShelfFirstOrder: return "HS 1st"
+        case .tiltFirstOrder: return "Tilt 1st"
+        case .lowPassSecondOrder: return "LP 2nd"
+        case .highPassSecondOrder: return "HP 2nd"
+        case .allPassSecondOrder: return "AP 2nd"
+        case .highShelfSecondOrder: return "HS 2nd"
+        case .lowShelfSecondOrder: return "LS 2nd"
+        case .tiltSecondOrder: return "Tilt 2nd"
+        case .peq: return "PEQ"
+        case .bypass: return "Bypass"
+        }
+    }
+}
+
+struct PEQStage: Equatable {
+    var frequency: Int = 1000       // Hz (20–20000)
+    var q: Double = 0.707           // Q factor (raw ÷ 4096)
+    var gain: Double = 0.0          // dB (raw ÷ 10, signed)
+    var filterType: PEQFilterType = .bypass
+}
+
+struct EQConfig: Equatable {
+    var bands: Int = 5
+    var minGainDB: Double = -6.0    // dB (signed byte ÷ 10)
+    var maxGainDB: Double = 6.0     // dB (signed byte ÷ 10)
+}
+
 struct PairedDevice: Identifiable, Equatable {
     let index: Int
     var name: String
@@ -100,12 +178,18 @@ final class HeadphoneController: ObservableObject {
     private var eqDebounceTask: Task<Void, Never>?
     private var bandDebounceTasks: [Int: Task<Void, Never>] = [:]
     @Published var bassBoostEnabled: Bool = false
-    @Published var podcastModeEnabled: Bool = false
+    @Published var audioMode: AudioMode = .userEq
+    @Published var peqStages: [PEQStage] = Array(repeating: PEQStage(), count: 5)
+    @Published var preGainDB: Double = 0.0
+    @Published var headroomDB: Double = 0.0
+    @Published var eqConfig = EQConfig()
     @Published var crossfeedLevel: Int = 2  // raw: 0=low, 1=high, 2=off
     @Published var pairedDevices: [PairedDevice] = []
     @Published var maxBTConnections: Int = 1
     @Published var ownDeviceIndex: Int = -1
 
+    private var peqDebounceTasks: [String: Task<Void, Never>] = [:]
+    private var preGainDebounceTask: Task<Void, Never>?
     private var transparencyDebounce: DispatchWorkItem?
     private var sidetoneDebounce: DispatchWorkItem?
     private var cancellables = Set<AnyCancellable>()
@@ -193,9 +277,10 @@ final class HeadphoneController: ObservableObject {
         async let bb: Void = fetchBassBoost()
         async let cf: Void = fetchCrossfeed()
         async let aup: Void = fetchAutoPause()
-        async let pm: Void = fetchPodcastMode()
+        async let am: Void = fetchAudioMode()
+        async let ec: Void = fetchEQConfig()
         async let dl: Void = fetchDeviceList()
-        _ = await (s, b, a, m, t, st, c, cs, oh, sp, ac, cc, ap, aup, fw, eq, bb, cf, pm, dl)
+        _ = await (s, b, a, m, t, st, c, cs, oh, sp, ac, cc, ap, aup, fw, eq, bb, cf, am, ec, dl)
     }
 
     // MARK: - Serial
@@ -463,6 +548,17 @@ final class HeadphoneController: ObservableObject {
         }
     }
 
+    // MARK: - EQ Config
+
+    func fetchEQConfig() async {
+        guard let resp = await send(vendor: .sennheiser, command: GAIAProtocol.cmdGetEQConfig) else { return }
+        if resp.payload.count >= 3 {
+            eqConfig.bands = Int(resp.payload[0])
+            eqConfig.minGainDB = Double(Int8(bitPattern: resp.payload[1])) / 10.0
+            eqConfig.maxGainDB = Double(Int8(bitPattern: resp.payload[2])) / 10.0
+        }
+    }
+
     // MARK: - Bass Boost
 
     func fetchBassBoost() async {
@@ -477,18 +573,149 @@ final class HeadphoneController: ObservableObject {
         _ = await send(vendor: .sennheiser, command: GAIAProtocol.cmdSetBassBoost, payload: [enabled ? 0x01 : 0x00])
     }
 
-    // MARK: - Podcast Mode
+    // MARK: - Audio Mode
 
-    func fetchPodcastMode() async {
-        guard let resp = await send(vendor: .sennheiser, command: GAIAProtocol.cmdGetPodcastMode) else { return }
+    func fetchAudioMode() async {
+        guard let resp = await send(vendor: .sennheiser, command: GAIAProtocol.cmdGetAudioMode) else { return }
         if resp.payload.count >= 2 {
-            podcastModeEnabled = resp.payload[1] == 0x02
+            audioMode = AudioMode(rawValue: Int(resp.payload[1])) ?? .off
+        }
+        if audioMode == .parametricEq {
+            await fetchPEQ()
         }
     }
 
-    func setPodcastMode(_ enabled: Bool) async {
-        podcastModeEnabled = enabled
-        _ = await send(vendor: .sennheiser, command: GAIAProtocol.cmdSetPodcastMode, payload: [0x00, enabled ? 0x02 : 0x01])
+    func setAudioMode(_ mode: AudioMode) async {
+        let prev = audioMode
+        audioMode = mode
+        _ = await send(vendor: .sennheiser, command: GAIAProtocol.cmdSetAudioMode, payload: [0x00, UInt8(mode.rawValue)])
+
+        switch mode {
+        case .userEq where prev != .userEq:
+            // Re-apply graphic EQ: gains → bass boost (sound zone apply order)
+            lockEQ(preset: eqPreset)
+            await sendEQBands(eqPreset)
+            await setBassBoost(bassBoostEnabled)
+        case .parametricEq:
+            // Sound zone apply order: stage frequencies → stage gains → stage Qs → stage filter types → pre-gain
+            await applyPEQState()
+        default:
+            break
+        }
+    }
+
+    /// Apply full PEQ state in sound zone order (used when switching to PEQ mode).
+    private func applyPEQState() async {
+        // Fetch current device state first (may differ from our local state on first switch)
+        await fetchPEQ()
+    }
+
+    // MARK: - Parametric EQ
+
+    func fetchPEQ() async {
+        async let pg: Void = fetchPreGain()
+        async let hr: Void = fetchHeadroom()
+        _ = await (pg, hr)
+
+        for stage in 0..<5 {
+            let s = UInt8(stage)
+            async let f = send(vendor: .sennheiser, command: GAIAProtocol.cmdGetStageFrequency, payload: [s])
+            async let q = send(vendor: .sennheiser, command: GAIAProtocol.cmdGetStageQ, payload: [s])
+            async let g = send(vendor: .sennheiser, command: GAIAProtocol.cmdGetStageGain, payload: [s])
+            async let t = send(vendor: .sennheiser, command: GAIAProtocol.cmdGetStageFilterType, payload: [s])
+            let (fResp, qResp, gResp, tResp) = await (f, q, g, t)
+
+            if let r = fResp, r.payload.count >= 3 {
+                peqStages[stage].frequency = Int(UInt16(r.payload[1]) << 8 | UInt16(r.payload[2]))
+            }
+            if let r = qResp, r.payload.count >= 3 {
+                let raw = UInt16(r.payload[1]) << 8 | UInt16(r.payload[2])
+                peqStages[stage].q = Double(raw) / 4096.0
+            }
+            if let r = gResp, r.payload.count >= 3 {
+                let raw = Int16(bitPattern: UInt16(r.payload[1]) << 8 | UInt16(r.payload[2]))
+                peqStages[stage].gain = Double(raw) / 10.0
+            }
+            if let r = tResp, r.payload.count >= 2 {
+                peqStages[stage].filterType = PEQFilterType(rawValue: Int(r.payload[1])) ?? .bypass
+            }
+        }
+    }
+
+    private func fetchPreGain() async {
+        guard let resp = await send(vendor: .sennheiser, command: GAIAProtocol.cmdGetPreGain) else { return }
+        if resp.payload.count >= 2 {
+            let raw = Int16(bitPattern: UInt16(resp.payload[0]) << 8 | UInt16(resp.payload[1]))
+            preGainDB = Double(raw) / 10.0
+        }
+    }
+
+    private func fetchHeadroom() async {
+        guard let resp = await send(vendor: .sennheiser, command: GAIAProtocol.cmdGetHeadroom) else { return }
+        if resp.payload.count >= 2 {
+            let raw = UInt16(resp.payload[0]) << 8 | UInt16(resp.payload[1])
+            headroomDB = Double(raw) / 10.0
+        }
+    }
+
+    func setPEQFrequency(_ stage: Int, hz: Int) {
+        guard stage >= 0, stage < 5 else { return }
+        peqStages[stage].frequency = hz
+        let raw = UInt16(clamping: hz)
+        debouncePEQ(key: "freq\(stage)") {
+            _ = await self.send(vendor: .sennheiser, command: GAIAProtocol.cmdSetStageFrequency,
+                                payload: [UInt8(stage), UInt8(raw >> 8), UInt8(raw & 0xFF)])
+        }
+    }
+
+    func setPEQQ(_ stage: Int, q: Double) {
+        guard stage >= 0, stage < 5 else { return }
+        peqStages[stage].q = q
+        let raw = UInt16(clamping: Int(round(q * 4096.0)))
+        debouncePEQ(key: "q\(stage)") {
+            _ = await self.send(vendor: .sennheiser, command: GAIAProtocol.cmdSetStageQ,
+                                payload: [UInt8(stage), UInt8(raw >> 8), UInt8(raw & 0xFF)])
+        }
+    }
+
+    func setPEQGain(_ stage: Int, db: Double) {
+        guard stage >= 0, stage < 5 else { return }
+        peqStages[stage].gain = db
+        let raw = Int16(clamping: Int(round(db * 10.0)))
+        let unsigned = UInt16(bitPattern: raw)
+        debouncePEQ(key: "gain\(stage)") {
+            _ = await self.send(vendor: .sennheiser, command: GAIAProtocol.cmdSetStageGain,
+                                payload: [UInt8(stage), UInt8(unsigned >> 8), UInt8(unsigned & 0xFF)])
+        }
+    }
+
+    func setPEQFilterType(_ stage: Int, type: PEQFilterType) async {
+        guard stage >= 0, stage < 5 else { return }
+        peqStages[stage].filterType = type
+        _ = await send(vendor: .sennheiser, command: GAIAProtocol.cmdSetStageFilterType,
+                       payload: [UInt8(stage), UInt8(type.rawValue)])
+    }
+
+    func setPreGain(_ db: Double) {
+        preGainDB = db
+        let raw = Int16(clamping: Int(round(db * 10.0)))
+        let unsigned = UInt16(bitPattern: raw)
+        preGainDebounceTask?.cancel()
+        preGainDebounceTask = Task {
+            try? await Task.sleep(nanoseconds: 100_000_000)
+            guard !Task.isCancelled else { return }
+            _ = await send(vendor: .sennheiser, command: GAIAProtocol.cmdSetPreGain,
+                           payload: [UInt8(unsigned >> 8), UInt8(unsigned & 0xFF)])
+        }
+    }
+
+    private func debouncePEQ(key: String, action: @escaping @Sendable () async -> Void) {
+        peqDebounceTasks[key]?.cancel()
+        peqDebounceTasks[key] = Task {
+            try? await Task.sleep(nanoseconds: 100_000_000)
+            guard !Task.isCancelled else { return }
+            await action()
+        }
     }
 
     // MARK: - Crossfeed
@@ -599,9 +826,11 @@ final class HeadphoneController: ObservableObject {
             if response.payload.count >= 1 { batteryLevel = Int(response.payload[0]) }
         case GAIAProtocol.respSidetone, GAIAProtocol.notifSidetone:
             if response.payload.count >= 1 { sidetoneLevel = Int(response.payload[0]) }
-        case GAIAProtocol.respPodcast, GAIAProtocol.notifPodcast:
+        case GAIAProtocol.respAudioMode, GAIAProtocol.notifAudioMode, GAIAProtocol.respSetAudioMode:
             if response.payload.count >= 2 {
-                podcastModeEnabled = response.payload[1] == 0x02
+                audioMode = AudioMode(rawValue: Int(response.payload[1])) ?? .off
+            } else if response.payload.count >= 1 {
+                audioMode = AudioMode(rawValue: Int(response.payload[0])) ?? .off
             }
         case GAIAProtocol.notifCodec, GAIAProtocol.respCodec:
             if response.payload.count >= 1 {
@@ -643,6 +872,37 @@ final class HeadphoneController: ObservableObject {
             }
         case GAIAProtocol.respCrossfeed, GAIAProtocol.notifCrossfeed:
             if response.payload.count >= 1 { crossfeedLevel = Int(response.payload[0]) }
+        case GAIAProtocol.notifStageFrequency:
+            if response.payload.count >= 3 {
+                let stage = Int(response.payload[0])
+                guard stage >= 0, stage < 5 else { break }
+                peqStages[stage].frequency = Int(UInt16(response.payload[1]) << 8 | UInt16(response.payload[2]))
+            }
+        case GAIAProtocol.notifStageQ:
+            if response.payload.count >= 3 {
+                let stage = Int(response.payload[0])
+                guard stage >= 0, stage < 5 else { break }
+                let raw = UInt16(response.payload[1]) << 8 | UInt16(response.payload[2])
+                peqStages[stage].q = Double(raw) / 4096.0
+            }
+        case GAIAProtocol.notifStageGain:
+            if response.payload.count >= 3 {
+                let stage = Int(response.payload[0])
+                guard stage >= 0, stage < 5 else { break }
+                let raw = Int16(bitPattern: UInt16(response.payload[1]) << 8 | UInt16(response.payload[2]))
+                peqStages[stage].gain = Double(raw) / 10.0
+            }
+        case GAIAProtocol.notifStageFilterType:
+            if response.payload.count >= 2 {
+                let stage = Int(response.payload[0])
+                guard stage >= 0, stage < 5 else { break }
+                peqStages[stage].filterType = PEQFilterType(rawValue: Int(response.payload[1])) ?? .bypass
+            }
+        case GAIAProtocol.respPreGain:
+            if response.payload.count >= 2 {
+                let raw = Int16(bitPattern: UInt16(response.payload[0]) << 8 | UInt16(response.payload[1]))
+                preGainDB = Double(raw) / 10.0
+            }
         default:
             break
         }

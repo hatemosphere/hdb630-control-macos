@@ -56,8 +56,8 @@ enum GAIAProtocol {
     static let cmdGetBattery: UInt16 = 0x0603
 
     static let cmdGetCodec: UInt16 = 0x0800          // response: 0=SBC,1=AAC,2=aptX,5=aptX-HD,8=aptX-Adaptive,10=LC3
-    static let cmdSetPodcastMode: UInt16 = 0x0803     // payload=[0x00, 0x02=on, 0x01=off]
-    static let cmdGetPodcastMode: UInt16 = 0x0804
+    static let cmdSetAudioMode: UInt16 = 0x0803     // payload=[0x00, mode(0-5)]
+    static let cmdGetAudioMode: UInt16 = 0x0804
     static let cmdSetSidetone: UInt16 = 0x0805       // payload=[level 0-4] (0=off, 1-4=levels)
     static let cmdGetSidetone: UInt16 = 0x0806
     static let cmdGetVoiceLanguage: UInt16 = 0x0807
@@ -70,10 +70,24 @@ enum GAIAProtocol {
     static let cmdSetComfortCall: UInt16 = 0x0814    // payload=[0=off, 1=on]
     static let cmdGetComfortCall: UInt16 = 0x0815
 
+    static let cmdGetEQConfig: UInt16 = 0x1000       // response=[bands, minGain_signed, maxGain_signed, byte3, byte4]
     static let cmdSetEQBand: UInt16 = 0x1001        // payload=[band(0-4), gain(int8, dB×10)]
     static let cmdGetEQ: UInt16 = 0x1002            // payload=[band 0-4], response=[gain(int8)]
     static let cmdSetBassBoost: UInt16 = 0x1008     // payload=[0=off, 1=on]
     static let cmdGetBassBoost: UInt16 = 0x1009
+
+    // PEQ stage commands (userEq feature, 5 stages 0-4)
+    static let cmdSetStageFrequency: UInt16 = 0x100A  // payload=[stage, freq_hi, freq_lo]
+    static let cmdGetStageFrequency: UInt16 = 0x100B
+    static let cmdSetStageQ: UInt16 = 0x100C          // payload=[stage, q_hi, q_lo] (raw = Q × 4096)
+    static let cmdGetStageQ: UInt16 = 0x100D
+    static let cmdSetStageFilterType: UInt16 = 0x100E // payload=[stage, type(0-14)]
+    static let cmdGetStageFilterType: UInt16 = 0x100F
+    static let cmdSetStageGain: UInt16 = 0x1010       // payload=[stage, gain_hi, gain_lo] (raw = dB × 10, signed)
+    static let cmdGetStageGain: UInt16 = 0x1011
+    static let cmdSetPreGain: UInt16 = 0x1012         // payload=[gain_hi, gain_lo] (raw = dB × 10, signed)
+    static let cmdGetPreGain: UInt16 = 0x1013
+    static let cmdGetHeadroom: UInt16 = 0x1014        // response=[headroom_hi, headroom_lo] (raw ÷ 10 = dB)
 
     static let cmdGetFirmwareVersion: UInt16 = 0x1202
 
@@ -104,8 +118,9 @@ enum GAIAProtocol {
     static let respBattery: UInt16 = 0x0703
     static let notifSidetone: UInt16 = 0x0886
     static let respSidetone: UInt16 = 0x0906
-    static let notifPodcast: UInt16 = 0x0884
-    static let respPodcast: UInt16 = 0x0903
+    static let notifAudioMode: UInt16 = 0x0884
+    static let respSetAudioMode: UInt16 = 0x0903
+    static let respAudioMode: UInt16 = 0x0904
     static let notifCodec: UInt16 = 0x0880
     static let respCodec: UInt16 = 0x0900
     static let notifCharging: UInt16 = 0x0682
@@ -116,6 +131,11 @@ enum GAIAProtocol {
     static let respBassBoostSet: UInt16 = 0x1108
     static let respBassBoostGet: UInt16 = 0x1109
     static let notifBassBoostAlt: UInt16 = 0x1088
+    static let notifStageFrequency: UInt16 = 0x108B
+    static let notifStageQ: UInt16 = 0x108D
+    static let notifStageFilterType: UInt16 = 0x108F
+    static let notifStageGain: UInt16 = 0x1091
+    static let respPreGain: UInt16 = 0x1113
     static let notifSmartPause: UInt16 = 0x088D
     static let notifComfortCall: UInt16 = 0x0895
     static let notifConnection: UInt16 = 0x1484

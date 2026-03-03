@@ -28,12 +28,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Popover
         popover = NSPopover()
-        popover.contentSize = NSSize(width: 320, height: 400)
         popover.behavior = .transient
-        popover.contentViewController = NSHostingController(
+        let hostingController = NSHostingController(
             rootView: StatusBarView(controller: controller, bluetooth: bluetooth)
                 .environmentObject(bluetooth)
         )
+        hostingController.sizingOptions = .preferredContentSize
+        popover.contentViewController = hostingController
 
         // Update menu bar with battery level
         controller.$batteryLevel

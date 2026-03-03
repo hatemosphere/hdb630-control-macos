@@ -56,7 +56,8 @@ docs/                          -- Protocol docs and RE guide
 - Transparency level (0-100)
 
 **Audio**
-- EQ presets (Neutral, Rock, Pop, Dance, Hip-Hop, Classical, Movie, Jazz) with custom detection
+- Preset EQ (Neutral, Rock, Pop, Dance, Hip-Hop, Classical, Movie, Jazz) with 5-band slider gains and custom detection
+- Parametric EQ (5-band PEQ with per-stage frequency, gain, Q, filter type, and pre-gain)
 - Bass boost
 - Podcast mode
 - Crossfeed (off/low/high)
@@ -84,10 +85,6 @@ docs/                          -- Protocol docs and RE guide
 - BTD 700 USB dongle works for audio but control still goes directly to headphones via separate BT connection
 - Multipoint is intentionally view-only, to not cut own connection
 - Custom EQ presets created in the mobile app show as "Custom" -- headphones only store raw band gains, preset names live in the phone app's local storage
-
-## TODOs
-
-- Custom band and parametric EQ
 
 ## BTD 700 Dongle & Multipoint
 

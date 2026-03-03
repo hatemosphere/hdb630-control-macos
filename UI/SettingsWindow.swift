@@ -71,10 +71,12 @@ struct SettingsView: View {
 
             SettingRow("Podcast Mode") {
                 Toggle("", isOn: Binding(
-                    get: { controller.podcastModeEnabled },
+                    get: { controller.audioMode == .podcastMode },
                     set: { on in Task {
-                        await controller.setPodcastMode(on)
-                        if !on {
+                        if on {
+                            await controller.setAudioMode(.podcastMode)
+                        } else {
+                            await controller.setAudioMode(.userEq)
                             controller.lockEQ(preset: controller.eqPreset)
                             await controller.sendEQBands(controller.eqPreset)
                         }
