@@ -7,10 +7,19 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0601C75202787321FA71540D /* IOBluetooth.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2812FD6395C926D15DB7CBFE /* IOBluetooth.framework */; };
+		1589C9582B59B1A926F54A61 /* MockController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A853BB9A82A0A00976F157DB /* MockController.swift */; };
+		3B3859AD1F0BF67F85CBF94A /* StatusBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C800B4A314F01AFF9A603E3F /* StatusBarView.swift */; };
 		48F185C410924AAC23D94044 /* GAIAProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B15D54638B3358EF6E43CA9 /* GAIAProtocol.swift */; };
 		4C89EB2F9F389E69E5F7EA4D /* StatusBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C800B4A314F01AFF9A603E3F /* StatusBarView.swift */; };
+		6FF0A96E23F3BD8B40F77C49 /* SettingsWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43CAF6C6DD4D4C6194BA4BC6 /* SettingsWindow.swift */; };
+		7E2AD4CD87F3384DC06639C5 /* Components.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81A96847BF00FEE10A1A2E4C /* Components.swift */; };
 		802E20CB841C6B52FF041864 /* BluetoothManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = E170740EEF5E035DBF9E758D /* BluetoothManager.swift */; };
 		9095069AAAF75001F34F8BD5 /* HeadphoneController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D43BB7830237A2173F8A61D6 /* HeadphoneController.swift */; };
+		9270F13B96675277C224E7D8 /* Components.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81A96847BF00FEE10A1A2E4C /* Components.swift */; };
+		9F23367AA312B3F5DF31A090 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 290E2F394655B8CEED0D2BEF /* Models.swift */; };
+		B20EA258B680EDE4BE606947 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 290E2F394655B8CEED0D2BEF /* Models.swift */; };
+		B55869F64FD1D11AD32EE0F5 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C680DA5A0061A163F7F344C /* main.swift */; };
 		C43319859A151F5D54B80910 /* SettingsWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43CAF6C6DD4D4C6194BA4BC6 /* SettingsWindow.swift */; };
 		C94E0F86BD91C15FA26C8FC5 /* IOBluetooth.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2812FD6395C926D15DB7CBFE /* IOBluetooth.framework */; };
 		CEC52D738381EABEFFBD18A4 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF9F40CCE91F32109F3B1CEE /* AppDelegate.swift */; };
@@ -19,9 +28,14 @@
 
 /* Begin PBXFileReference section */
 		2812FD6395C926D15DB7CBFE /* IOBluetooth.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOBluetooth.framework; path = System/Library/Frameworks/IOBluetooth.framework; sourceTree = SDKROOT; };
+		290E2F394655B8CEED0D2BEF /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
 		43CAF6C6DD4D4C6194BA4BC6 /* SettingsWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsWindow.swift; sourceTree = "<group>"; };
 		6288554D29F37F54ABAD731C /* HDB630ControlApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HDB630ControlApp.swift; sourceTree = "<group>"; };
+		7B7F509AB863CD1D3DBBC463 /* ScreenshotMock */ = {isa = PBXFileReference; includeInIndex = 0; path = ScreenshotMock; sourceTree = BUILT_PRODUCTS_DIR; };
+		81A96847BF00FEE10A1A2E4C /* Components.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Components.swift; sourceTree = "<group>"; };
 		8B15D54638B3358EF6E43CA9 /* GAIAProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GAIAProtocol.swift; sourceTree = "<group>"; };
+		9C680DA5A0061A163F7F344C /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
+		A853BB9A82A0A00976F157DB /* MockController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockController.swift; sourceTree = "<group>"; };
 		C800B4A314F01AFF9A603E3F /* StatusBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusBarView.swift; sourceTree = "<group>"; };
 		D43BB7830237A2173F8A61D6 /* HeadphoneController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeadphoneController.swift; sourceTree = "<group>"; };
 		DF9F40CCE91F32109F3B1CEE /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
@@ -38,9 +52,27 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		BBCC6EA3CE4BC878A48F3DF1 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				0601C75202787321FA71540D /* IOBluetooth.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		13D4BD79AF6BF2732DB32688 /* tools */ = {
+			isa = PBXGroup;
+			children = (
+				9C680DA5A0061A163F7F344C /* main.swift */,
+				A853BB9A82A0A00976F157DB /* MockController.swift */,
+			);
+			name = tools;
+			path = ../tools;
+			sourceTree = "<group>";
+		};
 		45BBF726DF84E720797D2ABF /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
@@ -54,6 +86,7 @@
 			children = (
 				9B53E99A5FFB53FD494D2D5C /* App */,
 				A3CF1EB888B32482AA5DA61C /* Bluetooth */,
+				13D4BD79AF6BF2732DB32688 /* tools */,
 				DCAA5049E00AAD6C2A0D560F /* UI */,
 				45BBF726DF84E720797D2ABF /* Frameworks */,
 				B165E58F849DBD9BD5861E20 /* Products */,
@@ -75,6 +108,7 @@
 				E170740EEF5E035DBF9E758D /* BluetoothManager.swift */,
 				8B15D54638B3358EF6E43CA9 /* GAIAProtocol.swift */,
 				D43BB7830237A2173F8A61D6 /* HeadphoneController.swift */,
+				290E2F394655B8CEED0D2BEF /* Models.swift */,
 			);
 			path = Bluetooth;
 			sourceTree = "<group>";
@@ -83,6 +117,7 @@
 			isa = PBXGroup;
 			children = (
 				FBE8260D7255BEA6E4BDEA35 /* HDB630Control.app */,
+				7B7F509AB863CD1D3DBBC463 /* ScreenshotMock */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -90,6 +125,7 @@
 		DCAA5049E00AAD6C2A0D560F /* UI */ = {
 			isa = PBXGroup;
 			children = (
+				81A96847BF00FEE10A1A2E4C /* Components.swift */,
 				43CAF6C6DD4D4C6194BA4BC6 /* SettingsWindow.swift */,
 				C800B4A314F01AFF9A603E3F /* StatusBarView.swift */,
 			);
@@ -117,6 +153,24 @@
 			productReference = FBE8260D7255BEA6E4BDEA35 /* HDB630Control.app */;
 			productType = "com.apple.product-type.application";
 		};
+		76120A3FAEF93B1D8DD02C4D /* ScreenshotMock */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 39FA5D11C3797EC232FB7048 /* Build configuration list for PBXNativeTarget "ScreenshotMock" */;
+			buildPhases = (
+				48EBD6CFB0DF55E0FDBB8CC7 /* Sources */,
+				BBCC6EA3CE4BC878A48F3DF1 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = ScreenshotMock;
+			packageProductDependencies = (
+			);
+			productName = ScreenshotMock;
+			productReference = 7B7F509AB863CD1D3DBBC463 /* ScreenshotMock */;
+			productType = "com.apple.product-type.tool";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -141,20 +195,36 @@
 			projectRoot = "";
 			targets = (
 				1C48F639232BD310EF96AE5F /* HDB630Control */,
+				76120A3FAEF93B1D8DD02C4D /* ScreenshotMock */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXSourcesBuildPhase section */
+		48EBD6CFB0DF55E0FDBB8CC7 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				9270F13B96675277C224E7D8 /* Components.swift in Sources */,
+				1589C9582B59B1A926F54A61 /* MockController.swift in Sources */,
+				B20EA258B680EDE4BE606947 /* Models.swift in Sources */,
+				6FF0A96E23F3BD8B40F77C49 /* SettingsWindow.swift in Sources */,
+				3B3859AD1F0BF67F85CBF94A /* StatusBarView.swift in Sources */,
+				B55869F64FD1D11AD32EE0F5 /* main.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		96C01AD8CFB4854AE463454F /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 				CEC52D738381EABEFFBD18A4 /* AppDelegate.swift in Sources */,
 				802E20CB841C6B52FF041864 /* BluetoothManager.swift in Sources */,
+				7E2AD4CD87F3384DC06639C5 /* Components.swift in Sources */,
 				48F185C410924AAC23D94044 /* GAIAProtocol.swift in Sources */,
 				F96CDC8833066AC884F56D7B /* HDB630ControlApp.swift in Sources */,
 				9095069AAAF75001F34F8BD5 /* HeadphoneController.swift in Sources */,
+				9F23367AA312B3F5DF31A090 /* Models.swift in Sources */,
 				C43319859A151F5D54B80910 /* SettingsWindow.swift in Sources */,
 				4C89EB2F9F389E69E5F7EA4D /* StatusBarView.swift in Sources */,
 			);
@@ -163,6 +233,44 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
+		28197D14BF26588DB7BCDDCF /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGNING_REQUIRED = NO;
+				CODE_SIGN_IDENTITY = "-";
+				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_HARDENED_RUNTIME = NO;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.hdb630.ScreenshotMock;
+				PRODUCT_NAME = screenshot_mock;
+				SDKROOT = macosx;
+				SWIFT_VERSION = 5.9;
+			};
+			name = Release;
+		};
+		3CCB554F42E4CC97AD085DEB /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGNING_REQUIRED = NO;
+				CODE_SIGN_IDENTITY = "-";
+				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_HARDENED_RUNTIME = NO;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.hdb630.ScreenshotMock;
+				PRODUCT_NAME = screenshot_mock;
+				SDKROOT = macosx;
+				SWIFT_VERSION = 5.9;
+			};
+			name = Debug;
+		};
 		4D219D43A28EC584C8C5BC23 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -338,6 +446,15 @@
 			buildConfigurations = (
 				87489F50D9526FCE789731AB /* Debug */,
 				E8C76C78EDA32DD2A548BEEB /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		39FA5D11C3797EC232FB7048 /* Build configuration list for PBXNativeTarget "ScreenshotMock" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				3CCB554F42E4CC97AD085DEB /* Debug */,
+				28197D14BF26588DB7BCDDCF /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;

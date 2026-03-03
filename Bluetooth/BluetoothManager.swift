@@ -22,16 +22,6 @@ private func BTLog(_ format: String, _ args: CVarArg...) {
     }
 }
 
-// MARK: - Device State
-
-enum ConnectionState: Equatable {
-    case disconnected
-    case scanning
-    case connecting
-    case connected
-    case error(String)
-}
-
 // MARK: - Bluetooth Manager
 
 final class BluetoothManager: NSObject, ObservableObject, @unchecked Sendable {

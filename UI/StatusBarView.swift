@@ -1,4 +1,5 @@
 import SwiftUI
+import IOBluetooth
 
 // MARK: - Tooltip (NSView-backed, works in NSPopover)
 
@@ -57,18 +58,22 @@ private struct ConnectedView: View {
     let bluetooth: BluetoothManager
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 10) {
             // Header
-            HStack {
+            HStack(spacing: 8) {
                 Image(systemName: "headphones")
-                    .font(.title2)
-                VStack(alignment: .leading, spacing: 1) {
+                    .font(.system(size: 24))
+                    .foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 2) {
                     Text(controller.deviceInfo.name.isEmpty ? "HDB 630" : controller.deviceInfo.name)
                         .font(.headline)
                     if !controller.deviceInfo.codec.isEmpty {
-                        Text("Codec: \(controller.deviceInfo.codec)")
+                        Text(controller.deviceInfo.codec)
                             .font(.caption2)
                             .foregroundStyle(.secondary)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 1)
+                            .background(.quaternary, in: Capsule())
                     }
                 }
                 Spacer()
@@ -77,49 +82,47 @@ private struct ConnectedView: View {
                     chargingStatus: controller.deviceInfo.chargingStatus
                 )
             }
-            .padding(.horizontal, 16)
+            .padding(.horizontal, 6)
 
-            Divider()
+            // Noise Control
+            CardSection("Noise Control") {
+                ANCSection(controller: controller)
 
-            // ANC Section
-            ANCSection(controller: controller)
-
-            // Transparent Hearing (requires ANC on, Adaptive off)
-            if controller.ancEnabled && !controller.ancState.adaptive {
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack {
-                        Text("Transparent Hearing")
-                            .font(.callout)
-                        Spacer()
-                        Text("\(controller.transparencyLevel)%")
-                            .font(.caption)
-                            .monospacedDigit()
-                            .foregroundStyle(.secondary)
+                if controller.ancEnabled && !controller.ancState.adaptive {
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack {
+                            Text("Transparent Hearing")
+                                .font(.callout)
+                            Spacer()
+                            Text("\(controller.transparencyLevel)%")
+                                .font(.caption)
+                                .monospacedDigit()
+                                .foregroundStyle(.secondary)
+                        }
+                        Slider(
+                            value: Binding(
+                                get: { Double(controller.transparencyLevel) },
+                                set: { val in
+                                    let level = Int(val)
+                                    controller.transparencyLevel = level
+                                    controller.setTransparency(level)
+                                }
+                            ),
+                            in: 0...100,
+                            step: 1
+                        )
                     }
-                    Slider(
-                        value: Binding(
-                            get: { Double(controller.transparencyLevel) },
-                            set: { val in
-                                let level = Int(val)
-                                controller.transparencyLevel = level
-                                controller.setTransparency(level)
-                            }
-                        ),
-                        in: 0...100,
-                        step: 1
-                    )
+                    .tooltip("Lets outside sounds through while ANC is active")
                 }
-                .tooltip("Lets outside sounds through while ANC is active")
-                .padding(.horizontal, 16)
             }
 
-            // EQ & Crossfeed
-            EQSection(controller: controller)
-
-            Divider()
+            // Sound
+            CardSection("Sound") {
+                EQSection(controller: controller)
+            }
 
             // Footer
-            FooterView(controller: controller, bluetooth: bluetooth)
+            FooterView(bluetooth: bluetooth)
         }
     }
 }
@@ -142,7 +145,6 @@ private struct ANCSection: View {
             .controlSize(.small)
         }
         .tooltip("Reduces ambient noise using built-in microphones")
-        .padding(.horizontal, 16)
 
         if controller.ancEnabled {
             VStack(alignment: .leading, spacing: 4) {
@@ -159,7 +161,6 @@ private struct ANCSection: View {
                 .pickerStyle(.segmented)
             }
             .tooltip("Reduces wind noise — Auto adjusts based on conditions")
-            .padding(.horizontal, 16)
 
             HStack {
                 Text("Comfort")
@@ -173,7 +174,6 @@ private struct ANCSection: View {
                 .controlSize(.small)
             }
             .tooltip("Reduced ANC strength for less ear pressure")
-            .padding(.horizontal, 16)
 
             HStack {
                 Text("Adaptive ANC")
@@ -187,7 +187,6 @@ private struct ANCSection: View {
                 .controlSize(.small)
             }
             .tooltip("Automatically adjusts ANC level based on environment")
-            .padding(.horizontal, 16)
         }
     }
 }
@@ -198,7 +197,6 @@ private struct EQSection: View {
     @ObservedObject var controller: HeadphoneController
 
     var body: some View {
-        // Audio mode picker
         VStack(alignment: .leading, spacing: 4) {
             Text("Audio Mode")
                 .font(.callout)
@@ -212,7 +210,6 @@ private struct EQSection: View {
             }
             .pickerStyle(.segmented)
         }
-        .padding(.horizontal, 16)
 
         switch controller.audioMode {
         case .userEq:
@@ -223,26 +220,9 @@ private struct EQSection: View {
             Text("Podcast mode optimizes audio for voice")
                 .font(.caption)
                 .foregroundStyle(.secondary)
-                .padding(.horizontal, 16)
         default:
             EmptyView()
         }
-
-        VStack(alignment: .leading, spacing: 4) {
-            Text("Crossfeed")
-                .font(.callout)
-            Picker("", selection: Binding(
-                get: { controller.crossfeedLevel },
-                set: { level in Task { await controller.setCrossfeed(level) } }
-            )) {
-                Text("Off").tag(2)
-                Text("Low").tag(0)
-                Text("High").tag(1)
-            }
-            .pickerStyle(.segmented)
-        }
-        .tooltip("Blends stereo channels for more natural, speaker-like sound")
-        .padding(.horizontal, 16)
     }
 }
 
@@ -273,10 +253,8 @@ private struct GraphicEQControls: View {
             .pickerStyle(.menu)
             .labelsHidden()
         }
-        .padding(.horizontal, 16)
 
         EQBandSliders(controller: controller)
-            .padding(.horizontal, 16)
 
         HStack {
             Text("Bass Boost")
@@ -290,7 +268,6 @@ private struct GraphicEQControls: View {
             .controlSize(.small)
         }
         .tooltip("Enhanced low-frequency response")
-        .padding(.horizontal, 16)
     }
 }
 
@@ -339,7 +316,6 @@ private struct PEQControls: View {
                 if stage < 4 { Divider() }
             }
         }
-        .padding(.horizontal, 16)
     }
 
     private func formatDB(_ db: Double) -> String {
@@ -579,23 +555,10 @@ private struct VerticalSlider: View {
 // MARK: - Footer
 
 private struct FooterView: View {
-    @ObservedObject var controller: HeadphoneController
     let bluetooth: BluetoothManager
 
     var body: some View {
         HStack {
-            VStack(alignment: .leading, spacing: 1) {
-                if !controller.deviceInfo.serial.isEmpty {
-                    Text("S/N \(controller.deviceInfo.serial)")
-                        .font(.caption2)
-                        .foregroundStyle(.tertiary)
-                }
-                if !controller.deviceInfo.firmwareVersion.isEmpty {
-                    Text("FW \(controller.deviceInfo.firmwareVersion)")
-                        .font(.caption2)
-                        .foregroundStyle(.tertiary)
-                }
-            }
             Spacer()
             Button {
                 NotificationCenter.default.post(name: .openSettings, object: nil)
@@ -613,7 +576,7 @@ private struct FooterView: View {
             .foregroundStyle(.secondary)
             QuitButton()
         }
-        .padding(.horizontal, 16)
+        .padding(.horizontal, 6)
     }
 }
 
