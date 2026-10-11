@@ -66,22 +66,21 @@ The BTD 700 screenshot shows a connected dongle running firmware 3.11.0. The app
 ## Project Structure
 
 ```
-HDB630Control/
-  App/
-    AppDelegate.swift          -- Menu bar item, popover, polling
-    HDB630ControlApp.swift     -- SwiftUI app entry point
-  Bluetooth/
-    Models.swift               -- Shared model types (ANCState, EQPreset, etc.)
-    GAIAProtocol.swift         -- GAIA v3 packet builder/parser
-    BluetoothManager.swift     -- SDP lookup, RFCOMM I/O
-    HeadphoneController.swift  -- Device state + all get/set commands
-    DongleController.swift     -- BTD 700 USB HID control and status
-  UI/
-    Components.swift           -- Shared UI components (CardSection)
-    StatusBarView.swift        -- Main popover (controls, EQ, PEQ)
-    SettingsWindow.swift       -- Settings page (call, general, device info)
-    DongleView.swift           -- BTD 700 controls and status
-    DiagnosticsView.swift      -- Signal Lab telemetry window
+App/
+  AppDelegate.swift          -- Menu bar item, popover, polling
+  HDB630ControlApp.swift     -- SwiftUI app entry point
+Bluetooth/
+  Models.swift               -- Shared model types (ANCState, EQPreset, etc.)
+  GAIAProtocol.swift         -- GAIA v3 packet builder/parser
+  BluetoothManager.swift     -- SDP lookup, RFCOMM I/O
+  HeadphoneController.swift  -- Device state + all get/set commands
+  DongleController.swift     -- BTD 700 USB HID control and status
+UI/
+  Components.swift           -- Shared UI components (CardSection)
+  StatusBarView.swift        -- Main popover (controls, EQ, PEQ)
+  SettingsWindow.swift       -- Settings page (call, general, device info)
+  DongleView.swift           -- BTD 700 controls and status
+  DiagnosticsView.swift      -- Signal Lab telemetry window
 
 tools/
   MockController.swift         -- Mock stubs for screenshot generation
