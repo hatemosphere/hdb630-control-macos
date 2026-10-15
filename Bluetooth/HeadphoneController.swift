@@ -16,6 +16,7 @@ final class HeadphoneController: ObservableObject {
     @Published private(set) var usageStatistics: [GAIAStatistic] = []
     private var fetchingStatistics = false
     private var connectionGeneration = 0
+    private var initializationTask: Task<Void, Never>?
     @Published var controlError: String?
     @Published var ancEnabled: Bool = false
     @Published var ancState = ANCState()
@@ -47,8 +48,8 @@ final class HeadphoneController: ObservableObject {
 
     private var peqDebounceTasks: [String: Task<Void, Never>] = [:]
     private var preGainDebounceTask: Task<Void, Never>?
-    private var transparencyDebounce: DispatchWorkItem?
-    private var sidetoneDebounce: DispatchWorkItem?
+    private var transparencyDebounce: Task<Void, Never>?
+    private var sidetoneDebounce: Task<Void, Never>?
     private var cancellables = Set<AnyCancellable>()
 
     init(bluetooth: BluetoothManager) {
@@ -64,18 +65,37 @@ final class HeadphoneController: ObservableObject {
             .removeDuplicates()
             .sink { [weak self] state in
                 guard let self else { return }
+                self.connectionGeneration += 1
+                self.cancelConnectionWork()
                 if state == .connected {
-                    Task { await self.fetchAll() }
+                    self.initializationTask = Task { await self.fetchAll() }
                 } else {
                     self.streamSampleRate = nil
                     self.highResolutionEnabled = nil
                     self.physicalDeviceState = nil
                     self.streamingStatistics = nil
                     self.usageStatistics = []
-                    self.connectionGeneration += 1
                 }
             }
             .store(in: &cancellables)
+    }
+
+    private func cancelConnectionWork() {
+        initializationTask?.cancel()
+        initializationTask = nil
+        eqDebounceTask?.cancel()
+        eqDebounceTask = nil
+        bandDebounceTasks.values.forEach { $0.cancel() }
+        bandDebounceTasks.removeAll()
+        peqDebounceTasks.values.forEach { $0.cancel() }
+        peqDebounceTasks.removeAll()
+        preGainDebounceTask?.cancel()
+        preGainDebounceTask = nil
+        transparencyDebounce?.cancel()
+        transparencyDebounce = nil
+        sidetoneDebounce?.cancel()
+        sidetoneDebounce = nil
+        eqLockUntil = .distantPast
     }
 
     /// Poll settings that lack push notifications.
@@ -212,8 +232,10 @@ final class HeadphoneController: ObservableObject {
               bluetooth.state == .connected else { return }
         changingHighResolution = true
         defer { changingHighResolution = false }
+        let generation = connectionGeneration
         guard await writeSetting(GAIAProtocol.cmdSetBluetoothCompatibility, payload: [enabled ? 0 : 1]) else { return }
         await fetchHighResolution()
+        guard !Task.isCancelled, generation == connectionGeneration else { return }
         guard highResolutionEnabled == enabled else {
             controlError = "The headphones did not confirm the resolution setting. Try again."
             return
@@ -264,17 +286,14 @@ final class HeadphoneController: ObservableObject {
     }
 
     func setNoiseControlMode(_ mode: NoiseControlMode) async {
+        let generation = connectionGeneration
         switch mode {
         case .off:
             await setANCEnabled(false)
-        case .adaptive:
+        case .adaptive, .custom:
             if !ancEnabled { await setANCEnabled(true) }
-            guard ancEnabled else { return }
-            await setAdaptive(true)
-        case .custom:
-            if !ancEnabled { await setANCEnabled(true) }
-            guard ancEnabled else { return }
-            await setAdaptive(false)
+            guard ancEnabled, !Task.isCancelled, generation == connectionGeneration else { return }
+            await setAdaptive(mode == .adaptive)
         }
     }
 
@@ -326,16 +345,12 @@ final class HeadphoneController: ObservableObject {
     func setTransparency(_ level: Int) {
         guard (0...100).contains(level) else { return }
         transparencyDebounce?.cancel()
-        let item = DispatchWorkItem { [weak self] in
-            Task { @MainActor [weak self] in
-                guard let self else { return }
-                let payload: [UInt8] = [UInt8(level)]
-                _ = await self.writeSetting(GAIAProtocol.cmdSetTransparency, payload: payload)
-                await self.fetchTransparency()
-            }
+        transparencyDebounce = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 150_000_000)
+            guard let self, !Task.isCancelled else { return }
+            _ = await self.writeSetting(GAIAProtocol.cmdSetTransparency, payload: [UInt8(level)])
+            await self.fetchTransparency()
         }
-        transparencyDebounce = item
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15, execute: item)
     }
 
     // MARK: - Sidetone
@@ -350,16 +365,12 @@ final class HeadphoneController: ObservableObject {
     func setSidetone(_ level: Int) {
         guard (0...4).contains(level) else { return }
         sidetoneDebounce?.cancel()
-        let item = DispatchWorkItem { [weak self] in
-            Task { @MainActor [weak self] in
-                guard let self else { return }
-                let payload: [UInt8] = [UInt8(level)]
-                _ = await self.writeSetting(GAIAProtocol.cmdSetSidetone, payload: payload)
-                await self.fetchSidetone()
-            }
+        sidetoneDebounce = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 150_000_000)
+            guard let self, !Task.isCancelled else { return }
+            _ = await self.writeSetting(GAIAProtocol.cmdSetSidetone, payload: [UInt8(level)])
+            await self.fetchSidetone()
         }
-        sidetoneDebounce = item
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15, execute: item)
     }
 
     // MARK: - Auto-Pause (pause audio when sidetone/transparency enabled)
@@ -496,13 +507,15 @@ final class HeadphoneController: ObservableObject {
 
     func fetchEQ() async {
         guard !eqLocked else { return }
+        let generation = connectionGeneration
         var gains = [Int8](repeating: 0, count: 5)
         for band in 0..<5 {
             guard let resp = await send(vendor: .sennheiser, command: GAIAProtocol.cmdGetEQ,
-                                        payload: [UInt8(band)]), let first = resp.payload.first else { return }
+                                        payload: [UInt8(band)]), let first = resp.payload.first,
+                  !Task.isCancelled, generation == connectionGeneration else { return }
             gains[band] = Int8(bitPattern: first)
         }
-        guard !eqLocked else { return }
+        guard !eqLocked, !Task.isCancelled, generation == connectionGeneration else { return }
         eqGains = gains.map { Double($0) / 10.0 }
         eqPreset = EQPreset.matching(gains: gains)
     }
@@ -522,6 +535,7 @@ final class HeadphoneController: ObservableObject {
 
     @discardableResult
     private func sendEQGains(_ gains: [Double]) async -> Bool {
+        let generation = connectionGeneration
         var succeeded = true
         for (band, gain) in gains.enumerated() {
             let raw = Int8(clamping: Int(round(gain * 10)))
@@ -529,6 +543,7 @@ final class HeadphoneController: ObservableObject {
             if !(await writeSetting(GAIAProtocol.cmdSetEQBand, payload: payload)) {
                 succeeded = false
             }
+            guard !Task.isCancelled, generation == connectionGeneration else { return false }
         }
         eqLockUntil = succeeded ? Date().addingTimeInterval(1) : .distantPast
         if !succeeded {
@@ -551,6 +566,7 @@ final class HeadphoneController: ObservableObject {
             let raw = Int8(clamping: Int(round(gain * 10)))
             let succeeded = await writeSetting(GAIAProtocol.cmdSetEQBand,
                                                payload: [UInt8(band), UInt8(bitPattern: raw)])
+            guard !Task.isCancelled else { return }
             eqLockUntil = succeeded ? Date().addingTimeInterval(1) : .distantPast
             if !succeeded { await fetchEQ() }
         }
@@ -594,6 +610,7 @@ final class HeadphoneController: ObservableObject {
     }
 
     func setAudioMode(_ mode: AudioMode) async {
+        let generation = connectionGeneration
         let prev = audioMode
         guard await writeSetting(GAIAProtocol.cmdSetAudioMode, payload: [0x00, UInt8(mode.rawValue)]) else {
             await fetchAudioMode()
@@ -606,20 +623,25 @@ final class HeadphoneController: ObservableObject {
             // Re-apply graphic EQ: gains → bass boost (sound zone apply order)
             eqLockUntil = Date().addingTimeInterval(5)
             let gainsApplied = await sendEQGains(eqGains)
+            guard !Task.isCancelled, generation == connectionGeneration else { return }
             await setBassBoost(bassBoostEnabled)
+            guard !Task.isCancelled, generation == connectionGeneration else { return }
             if !gainsApplied { controlError = "One or more EQ bands could not be applied." }
         default:
             break
         }
+        guard !Task.isCancelled, generation == connectionGeneration else { return }
         await fetchAudioMode()
     }
 
     // MARK: - Parametric EQ
 
     func fetchPEQ() async {
+        let generation = connectionGeneration
         async let pg: Void = fetchPreGain()
         async let hr: Void = fetchHeadroom()
         _ = await (pg, hr)
+        guard !Task.isCancelled, generation == connectionGeneration else { return }
 
         for stage in 0..<5 {
             let s = UInt8(stage)
@@ -628,6 +650,7 @@ final class HeadphoneController: ObservableObject {
             async let g = send(vendor: .sennheiser, command: GAIAProtocol.cmdGetStageGain, payload: [s])
             async let t = send(vendor: .sennheiser, command: GAIAProtocol.cmdGetStageFilterType, payload: [s])
             let (fResp, qResp, gResp, tResp) = await (f, q, g, t)
+            guard !Task.isCancelled, generation == connectionGeneration else { return }
 
             if let r = fResp, r.payload.count >= 3 {
                 peqStages[stage].frequency = Int(UInt16(r.payload[1]) << 8 | UInt16(r.payload[2]))
@@ -745,23 +768,31 @@ final class HeadphoneController: ObservableObject {
     // MARK: - Paired Device List
 
     func fetchDeviceList() async {
+        let generation = connectionGeneration
         // Fetch max connections and own index in parallel
         async let mc: Void = fetchMaxBTConnections()
         async let oi: Void = fetchOwnDeviceIndex()
         _ = await (mc, oi)
+        guard !Task.isCancelled, generation == connectionGeneration else { return }
 
         // Get list size
-        guard let sizeResp = await send(vendor: .sennheiser, command: GAIAProtocol.cmdGetPairedDeviceListSize) else { return }
+        guard let sizeResp = await send(vendor: .sennheiser, command: GAIAProtocol.cmdGetPairedDeviceListSize),
+              !Task.isCancelled, generation == connectionGeneration else { return }
         let count: Int
         if sizeResp.payload.count >= 2 {
             count = Int(UInt16(sizeResp.payload[0]) << 8 | UInt16(sizeResp.payload[1]))
         } else {
             return
         }
+        guard count <= Int(UInt8.max) + 1 else {
+            controlError = "The headphones reported an invalid paired-device count (\(count))."
+            return
+        }
 
         // Fetch info for each device
         var devices: [PairedDevice] = []
         for i in 0..<count {
+            guard !Task.isCancelled, generation == connectionGeneration else { return }
             guard let resp = await send(vendor: .sennheiser, command: GAIAProtocol.cmdGetDeviceInfo, payload: [UInt8(i)]) else { continue }
             if resp.payload.count >= 3 {
                 let bytes = [UInt8](resp.payload)
@@ -782,6 +813,7 @@ final class HeadphoneController: ObservableObject {
                 ))
             }
         }
+        guard !Task.isCancelled, generation == connectionGeneration else { return }
         pairedDevices = devices
     }
 
@@ -813,13 +845,12 @@ final class HeadphoneController: ObservableObject {
 
     private func setupNotificationHandler() {
         bluetooth.notificationHandler = { [weak self] response in
-            Task { @MainActor in
-                self?.handleNotification(response)
-            }
+            self?.handleNotification(response)
         }
     }
 
     private func handleNotification(_ response: GAIAProtocol.Response) {
+        guard bluetooth.state == .connected else { return }
         NSLog("[HP] Notification: vendor=0x%04X cmd=0x%04X payload=%d bytes",
               response.vendorId, response.commandId, response.payload.count)
 
@@ -930,12 +961,18 @@ final class HeadphoneController: ObservableObject {
 
     @discardableResult
     private func writeSetting(_ command: UInt16, payload: [UInt8]) async -> Bool {
+        guard !Task.isCancelled, bluetooth.state == .connected else { return false }
+        let generation = connectionGeneration
         do {
             _ = try await bluetooth.sendCommand(vendor: GAIAProtocol.vendorSennheiser,
                                                 command: command, payload: payload)
+            guard !Task.isCancelled, generation == connectionGeneration,
+                  bluetooth.state == .connected else { return false }
             controlError = nil
             return true
         } catch {
+            guard !Task.isCancelled, generation == connectionGeneration,
+                  bluetooth.state == .connected else { return false }
             controlError = error.localizedDescription
             NSLog("[HP] Write 0x%04X failed: %@", command, error.localizedDescription)
             return false
@@ -943,10 +980,17 @@ final class HeadphoneController: ObservableObject {
     }
 
     private func send(vendor: VendorID, command: UInt16, payload: [UInt8] = []) async -> GAIAProtocol.Response? {
+        guard !Task.isCancelled, bluetooth.state == .connected else { return nil }
+        let generation = connectionGeneration
         let vendorValue: UInt16 = (vendor == .qualcomm) ? GAIAProtocol.vendorQualcomm : GAIAProtocol.vendorSennheiser
         do {
-            return try await bluetooth.sendCommand(vendor: vendorValue, command: command, payload: payload)
+            let response = try await bluetooth.sendCommand(vendor: vendorValue, command: command, payload: payload)
+            guard !Task.isCancelled, generation == connectionGeneration,
+                  bluetooth.state == .connected else { return nil }
+            return response
         } catch {
+            guard !Task.isCancelled, generation == connectionGeneration,
+                  bluetooth.state == .connected else { return nil }
             NSLog("[HP] Command 0x%04X failed: %@", command, error.localizedDescription)
             return nil
         }

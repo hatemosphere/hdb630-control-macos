@@ -63,6 +63,16 @@ xcodebuild -project HDB630Control.xcodeproj -scheme ScreenshotMock -configuratio
 
 The BTD 700 screenshot shows a connected dongle running firmware 3.11.0. The app-settings screenshot was captured from the installed app with Launch at login enabled.
 
+## Tests
+
+Run the offline regression checks on macOS with Xcode installed:
+
+```sh
+./tools/test.sh
+```
+
+The checks compile production parsing, request-session, controller, and audio-observation code. Recorded packet responses and simulated OS calls cover cancellation, reconnect isolation, malformed replies, and listener cleanup. They do not communicate with the headphones or dongle. Native app behavior and physical connections require separate verification.
+
 ## Project Structure
 
 ```

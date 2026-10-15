@@ -160,8 +160,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
     private func startPolling() {
         guard pollTimer == nil else { return }
         pollTimer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
-            guard let self, self.bluetooth.state == .connected else { return }
-            Task { await self.controller.pollState() }
+            Task { @MainActor [weak self] in
+                guard let self, self.bluetooth.state == .connected else { return }
+                await self.controller.pollState()
+            }
         }
     }
 

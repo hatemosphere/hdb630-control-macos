@@ -755,14 +755,9 @@ private struct ErrorView: View {
 // MARK: - Quit Button
 
 struct QuitButton: View {
-    @EnvironmentObject var bluetooth: BluetoothManager
-
     var body: some View {
         Button("Quit") {
-            bluetooth.disconnect(userInitiated: true)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                NSApp.terminate(nil)
-            }
+            NSApp.terminate(nil)
         }
         .buttonStyle(.borderless)
         .controlSize(.small)

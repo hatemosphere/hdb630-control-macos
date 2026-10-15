@@ -14,7 +14,9 @@ final class AudioOutputSwitcher: ObservableObject {
 
     private var hotKey: EventHotKeyRef?
     private var eventHandler: EventHandlerRef?
+    private var started = false
     private var outputListener: AudioObjectPropertyListenerBlock?
+    private var outputListenerProperties: [(object: AudioObjectID, selector: AudioObjectPropertySelector)] = []
     private var toast: NSPanel?
     private var hideToast: DispatchWorkItem?
     private static let signature: OSType = 0x48444253 // HDBS
@@ -46,7 +48,8 @@ final class AudioOutputSwitcher: ObservableObject {
     }
 
     func start() {
-        guard eventHandler == nil else { return }
+        guard !started else { return }
+        started = true
         // Act on release so holding the shortcut cannot repeatedly flip the output.
         var eventType = EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyReleased))
         let installed = InstallEventHandler(GetApplicationEventTarget(), { _, event, context in
@@ -74,9 +77,12 @@ final class AudioOutputSwitcher: ObservableObject {
         let listener: AudioObjectPropertyListenerBlock = { [weak self] _, _ in
             Task { @MainActor in self?.refresh() }
         }
-        var property = Self.address(kAudioHardwarePropertyDefaultOutputDevice)
-        if AudioObjectAddPropertyListenerBlock(Self.system, &property, .main, listener) == noErr {
-            outputListener = listener
+        outputListener = listener
+        for selector in [kAudioHardwarePropertyDefaultOutputDevice, kAudioHardwarePropertyDevices] {
+            var property = Self.address(selector)
+            if AudioObjectAddPropertyListenerBlock(Self.system, &property, .main, listener) == noErr {
+                outputListenerProperties.append((Self.system, selector))
+            }
         }
         refresh()
     }
@@ -85,10 +91,12 @@ final class AudioOutputSwitcher: ObservableObject {
         if let hotKey { UnregisterEventHotKey(hotKey) }
         if let eventHandler { RemoveEventHandler(eventHandler) }
         if let outputListener {
-            var property = AudioObjectPropertyAddress(mSelector: kAudioHardwarePropertyDefaultOutputDevice,
-                                                     mScope: kAudioObjectPropertyScopeGlobal,
-                                                     mElement: kAudioObjectPropertyElementMain)
-            AudioObjectRemovePropertyListenerBlock(AudioObjectID(kAudioObjectSystemObject), &property, .main, outputListener)
+            for observed in outputListenerProperties {
+                var property = AudioObjectPropertyAddress(mSelector: observed.selector,
+                                                         mScope: kAudioObjectPropertyScopeGlobal,
+                                                         mElement: kAudioObjectPropertyElementMain)
+                AudioObjectRemovePropertyListenerBlock(observed.object, &property, .main, outputListener)
+            }
         }
         hideToast?.cancel()
     }
@@ -100,12 +108,29 @@ final class AudioOutputSwitcher: ObservableObject {
         } catch {
             outputName = "Output unavailable"
         }
-        if let dongle = try? Self.dongleOutput() {
+        let dongle = try? Self.dongleOutput()
+        observeDongleRate(dongle?.id)
+        if let dongle {
             dongleRate = try? Self.double(dongle.id, kAudioDevicePropertyNominalSampleRate)
             dongleRates = (try? Self.rates(dongle.id)) ?? []
         } else {
             dongleRate = nil
             dongleRates = []
+        }
+    }
+
+    private func observeDongleRate(_ device: AudioDeviceID?) {
+        guard let outputListener else { return }
+        let selector = kAudioDevicePropertyNominalSampleRate
+        var property = Self.address(selector)
+        if let index = outputListenerProperties.firstIndex(where: { $0.selector == selector }) {
+            let observed = outputListenerProperties[index]
+            guard observed.object != device else { return }
+            AudioObjectRemovePropertyListenerBlock(observed.object, &property, .main, outputListener)
+            outputListenerProperties.remove(at: index)
+        }
+        if let device, AudioObjectAddPropertyListenerBlock(device, &property, .main, outputListener) == noErr {
+            outputListenerProperties.append((device, selector))
         }
     }
 

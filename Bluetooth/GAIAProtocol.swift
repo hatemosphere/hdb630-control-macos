@@ -193,7 +193,7 @@ enum GAIAProtocol {
 
         let vendorId = UInt16(bytes[4]) << 8 | UInt16(bytes[5])
         let commandId = UInt16(bytes[6]) << 8 | UInt16(bytes[7])
-        let payload = Data(data[headerSize..<totalLen])
+        let payload = Data(bytes[headerSize..<totalLen])
 
         return (Response(vendorId: vendorId, commandId: commandId, payload: payload), totalLen)
     }

@@ -17,6 +17,7 @@
 		1589C9582B59B1A926F54A61 /* MockController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A853BB9A82A0A00976F157DB /* MockController.swift */; };
 		3B3859AD1F0BF67F85CBF94A /* StatusBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C800B4A314F01AFF9A603E3F /* StatusBarView.swift */; };
 		48F185C410924AAC23D94044 /* GAIAProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B15D54638B3358EF6E43CA9 /* GAIAProtocol.swift */; };
+		6A1A20261015000000000001 /* GAIACommandSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A1A20261015000000000002 /* GAIACommandSession.swift */; };
 		4C89EB2F9F389E69E5F7EA4D /* StatusBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C800B4A314F01AFF9A603E3F /* StatusBarView.swift */; };
 		6FF0A96E23F3BD8B40F77C49 /* SettingsWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43CAF6C6DD4D4C6194BA4BC6 /* SettingsWindow.swift */; };
 		7E2AD4CD87F3384DC06639C5 /* Components.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81A96847BF00FEE10A1A2E4C /* Components.swift */; };
@@ -45,6 +46,7 @@
 		7B7F509AB863CD1D3DBBC463 /* ScreenshotMock */ = {isa = PBXFileReference; includeInIndex = 0; path = ScreenshotMock; sourceTree = BUILT_PRODUCTS_DIR; };
 		81A96847BF00FEE10A1A2E4C /* Components.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Components.swift; sourceTree = "<group>"; };
 		8B15D54638B3358EF6E43CA9 /* GAIAProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GAIAProtocol.swift; sourceTree = "<group>"; };
+		6A1A20261015000000000002 /* GAIACommandSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GAIACommandSession.swift; sourceTree = "<group>"; };
 		9C680DA5A0061A163F7F344C /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
 		A853BB9A82A0A00976F157DB /* MockController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockController.swift; sourceTree = "<group>"; };
 		C800B4A314F01AFF9A603E3F /* StatusBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusBarView.swift; sourceTree = "<group>"; };
@@ -122,6 +124,7 @@
 				E170740EEF5E035DBF9E758D /* BluetoothManager.swift */,
 				0D0D0D0D0D0D0D0D0D0D0004 /* DongleController.swift */,
 				8B15D54638B3358EF6E43CA9 /* GAIAProtocol.swift */,
+				6A1A20261015000000000002 /* GAIACommandSession.swift */,
 				D43BB7830237A2173F8A61D6 /* HeadphoneController.swift */,
 				290E2F394655B8CEED0D2BEF /* Models.swift */,
 			);
@@ -244,6 +247,7 @@
 				D1A600000000000000000001 /* DiagnosticsView.swift in Sources */,
 				7E2AD4CD87F3384DC06639C5 /* Components.swift in Sources */,
 				48F185C410924AAC23D94044 /* GAIAProtocol.swift in Sources */,
+				6A1A20261015000000000001 /* GAIACommandSession.swift in Sources */,
 				F96CDC8833066AC884F56D7B /* HDB630ControlApp.swift in Sources */,
 				9095069AAAF75001F34F8BD5 /* HeadphoneController.swift in Sources */,
 				9F23367AA312B3F5DF31A090 /* Models.swift in Sources */,

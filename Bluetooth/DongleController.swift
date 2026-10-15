@@ -44,6 +44,62 @@ final class DongleController: ObservableObject {
         }
     }
 
+    struct StatusSnapshot: Equatable {
+        let firmware: String
+        let connectionState: UInt8
+        let audioMode: AudioMode
+        let transport: UInt8
+        let supportedCodecMask: UInt16
+        let activeCodecMask: UInt16
+        let bitDepth: UInt8
+        let sampleRate: UInt8
+        let leAudioState: UInt8?
+        let sinkTransport: UInt8?
+
+        @MainActor static func read(using command: (UInt8) async throws -> [UInt8]) async throws -> Self {
+            func read(_ id: UInt8, minimum: Int) async throws -> [UInt8] {
+                try Task.checkCancellation()
+                let bytes = try await command(id)
+                try Task.checkCancellation()
+                guard bytes.count >= minimum else { throw DongleError.malformedResponse }
+                return bytes
+            }
+
+            func optionalState(_ id: UInt8, maximum: UInt8) async throws -> UInt8? {
+                do {
+                    let bytes = try await read(id, minimum: 1)
+                    return bytes[0] <= maximum ? bytes[0] : nil
+                } catch is CancellationError {
+                    throw CancellationError()
+                } catch {
+                    try Task.checkCancellation()
+                    return nil
+                }
+            }
+
+            func mask(_ bytes: [UInt8]) -> UInt16 {
+                UInt16(bytes[0]) | (bytes.count > 1 ? UInt16(bytes[1]) << 8 : 0)
+            }
+
+            let version = try await read(0x12, minimum: 3)
+            let state = try await read(0x06, minimum: 1)
+            let mode = try await read(0x01, minimum: 2)
+            guard let audioMode = AudioMode(rawValue: mode[0]) else {
+                throw DongleError.unsupportedAudioMode(mode[0])
+            }
+            let selected = try await read(0x03, minimum: 1)
+            let active = try await read(0x05, minimum: 1)
+            let quality = try await read(0x08, minimum: 2)
+            let leAudioState = try await optionalState(0x07, maximum: 4)
+            let sinkTransport = try await optionalState(0x15, maximum: 3)
+            return Self(firmware: "\(version[0]).\(version[1]).\(version[2])",
+                        connectionState: state[0], audioMode: audioMode, transport: mode[1],
+                        supportedCodecMask: mask(selected), activeCodecMask: mask(active),
+                        bitDepth: quality[0], sampleRate: quality[1],
+                        leAudioState: leAudioState, sinkTransport: sinkTransport)
+        }
+    }
+
     @Published private(set) var available = false
     @Published private(set) var busy = false
     private var activeOperations = 0
@@ -98,6 +154,7 @@ final class DongleController: ObservableObject {
         case unavailable
         case timeout
         case malformedResponse
+        case unsupportedAudioMode(UInt8)
         case io(IOReturn)
         case rejected(UInt8)
 
@@ -106,6 +163,7 @@ final class DongleController: ObservableObject {
             case .unavailable: "BTD 700 is not available. Check its USB connection."
             case .timeout: "The dongle did not respond. Close Sennheiser Dongle Control and retry."
             case .malformedResponse: "The dongle returned an incomplete response."
+            case .unsupportedAudioMode(let mode): "The dongle reported an unsupported audio mode (code \(mode))."
             case .io(let code): "USB control failed (\(code))."
             case .rejected(let code): "The dongle rejected that setting (code \(code))."
             }
@@ -114,6 +172,7 @@ final class DongleController: ObservableObject {
 
     private let manager = IOHIDManagerCreate(kCFAllocatorDefault, 0)
     private var device: IOHIDDevice?
+    private var deviceGeneration = UUID()
     private let reportBuffer = UnsafeMutablePointer<UInt8>.allocate(capacity: 64)
     private var pending: Pending?
     private var eventRefreshTask: Task<Void, Never>?
@@ -129,7 +188,7 @@ final class DongleController: ObservableObject {
             MainActor.assumeIsolated {
                 let wasAvailable = owner.available
                 owner.connect()
-                if !wasAvailable && owner.available { Task { await owner.refresh() } }
+                if !wasAvailable && owner.available { Task { _ = await owner.refresh() } }
             }
         }, context)
         IOHIDManagerRegisterDeviceRemovalCallback(manager, { context, _, _, removed in
@@ -144,7 +203,7 @@ final class DongleController: ObservableObject {
         IOHIDManagerScheduleWithRunLoop(manager, CFRunLoopGetMain(), CFRunLoopMode.defaultMode.rawValue)
         _ = IOHIDManagerOpen(manager, 0)
         connect()
-        Task { await refresh() }
+        Task { _ = await refresh() }
     }
 
     deinit {
@@ -175,11 +234,14 @@ final class DongleController: ObservableObject {
             guard IOHIDDeviceOpen(candidate, 0) == kIOReturnSuccess else { continue }
 
             device = candidate
-            IOHIDDeviceRegisterInputReportCallback(candidate, reportBuffer, 64, { context, _, _, _, _, report, length in
-                guard let context else { return }
+            deviceGeneration = UUID()
+            IOHIDDeviceRegisterInputReportCallback(candidate, reportBuffer, 64, { context, _, sender, _, _, report, length in
+                guard let context, length >= 0 else { return }
                 let bytes = Array(UnsafeBufferPointer(start: report, count: min(length, 64)))
-                DispatchQueue.main.async {
-                    let owner = Unmanaged<DongleController>.fromOpaque(context).takeUnretainedValue()
+                let owner = Unmanaged<DongleController>.fromOpaque(context).takeUnretainedValue()
+                MainActor.assumeIsolated {
+                    guard let current = owner.device,
+                          sender == Unmanaged.passUnretained(current).toOpaque() else { return }
                     owner.receive(bytes)
                 }
             }, Unmanaged.passUnretained(self).toOpaque())
@@ -191,6 +253,7 @@ final class DongleController: ObservableObject {
     }
 
     private func detach() {
+        deviceGeneration = UUID()
         eventRefreshTask?.cancel()
         eventRefreshTask = nil
         if let pending {
@@ -212,16 +275,15 @@ final class DongleController: ObservableObject {
     }
 
     func recoverAfterWake() async {
-        if available {
-            await refresh()
-            if errorMessage == nil { return }
-        }
+        if available, await refresh() { return }
+        guard !Task.isCancelled else { return }
         detach()
         for attempt in 0..<3 {
+            guard !Task.isCancelled else { return }
             connect()
             if available {
-                await refresh()
-                if errorMessage == nil { return }
+                if await refresh() { return }
+                guard !Task.isCancelled else { return }
                 detach()
             }
             if attempt < 2 { try? await Task.sleep(nanoseconds: 2_000_000_000) }
@@ -235,7 +297,7 @@ final class DongleController: ObservableObject {
             eventRefreshTask = Task { [weak self] in
                 try? await Task.sleep(nanoseconds: 250_000_000)
                 guard !Task.isCancelled else { return }
-                await self?.refresh()
+                _ = await self?.refresh()
             }
             return
         }
@@ -250,12 +312,15 @@ final class DongleController: ObservableObject {
     }
 
     private func command(_ id: UInt8, payload: [UInt8] = []) async throws -> [UInt8] {
+        try Task.checkCancellation()
+        if device == nil { connect() }
+        let generation = deviceGeneration
         while pending != nil {
             try await Task.sleep(nanoseconds: 20_000_000)
         }
-        if device == nil { connect() }
-        guard let device, available else { throw DongleError.unavailable }
-        return try await withCheckedThrowingContinuation { continuation in
+        try Task.checkCancellation()
+        guard let device, available, deviceGeneration == generation else { throw DongleError.unavailable }
+        let response: [UInt8] = try await withCheckedThrowingContinuation { continuation in
             let requestID = UUID()
             pending = Pending(id: requestID, command: id, continuation: continuation)
             var report = [UInt8](repeating: 0, count: 64)
@@ -280,47 +345,41 @@ final class DongleController: ObservableObject {
                 continuation.resume(throwing: DongleError.timeout)
             }
         }
+        try Task.checkCancellation()
+        guard available, deviceGeneration == generation else { throw DongleError.unavailable }
+        return response
     }
 
-    func refresh() async {
+    @discardableResult func refresh() async -> Bool {
         if device == nil { connect() }
-        guard available else { return }
+        guard available, !Task.isCancelled else { return false }
+        let generation = deviceGeneration
         beginOperation()
         defer { endOperation() }
         do {
-            let version = try await command(0x12)
-            if version.count >= 3 { firmware = "\(version[0]).\(version[1]).\(version[2])" }
-            let state = try await command(0x06)
-            if let first = state.first { connectionState = first }
-            let mode = try await command(0x01)
-            if mode.count >= 2 {
-                audioMode = AudioMode(rawValue: mode[0]) ?? .highQuality
-                transport = mode[1]
+            let snapshot = try await StatusSnapshot.read { id in
+                guard available, deviceGeneration == generation else { throw DongleError.unavailable }
+                return try await command(id)
             }
-            let selected = try await command(0x03)
-            if let first = selected.first {
-                supportedCodecMask = UInt16(first) | (selected.count > 1 ? UInt16(selected[1]) << 8 : 0)
-            }
-            let active = try await command(0x05)
-            if let first = active.first {
-                activeCodecMask = UInt16(first) | (active.count > 1 ? UInt16(active[1]) << 8 : 0)
-            }
-            let quality = try await command(0x08)
-            if quality.count >= 2 {
-                bitDepth = quality[0]
-                sampleRate = quality[1]
-            }
-            if let value = try? await command(0x07), let first = value.first, first <= 4 {
-                leAudioState = first
-            }
-            if let value = try? await command(0x15), let first = value.first, first <= 3 {
-                sinkTransport = first
-            }
+            try Task.checkCancellation()
+            guard available, deviceGeneration == generation else { return false }
+            firmware = snapshot.firmware
+            connectionState = snapshot.connectionState
+            audioMode = snapshot.audioMode
+            transport = snapshot.transport
+            supportedCodecMask = snapshot.supportedCodecMask
+            activeCodecMask = snapshot.activeCodecMask
+            bitDepth = snapshot.bitDepth
+            sampleRate = snapshot.sampleRate
+            leAudioState = snapshot.leAudioState
+            sinkTransport = snapshot.sinkTransport
             errorMessage = nil
+            return true
         } catch is CancellationError {
-            // A newer device event superseded this refresh.
+            return false
         } catch {
-            if available { errorMessage = error.localizedDescription }
+            if available, deviceGeneration == generation { errorMessage = error.localizedDescription }
+            return false
         }
     }
 
@@ -330,7 +389,7 @@ final class DongleController: ObservableObject {
         do {
             let response = try await command(0x02, payload: [mode.rawValue, transport])
             try checkAck(response)
-            await refresh()
+            guard await refresh() else { return false }
             if audioMode != mode {
                 errorMessage = "The dongle did not switch to \(mode.title)."
                 return false
@@ -348,7 +407,7 @@ final class DongleController: ObservableObject {
         do {
             let response = try await command(0x04, payload: [UInt8(codec.rawValue & 0xFF), UInt8(codec.rawValue >> 8)])
             try checkAck(response)
-            await refresh()
+            guard await refresh() else { return }
         } catch { errorMessage = error.localizedDescription }
     }
 
@@ -359,7 +418,7 @@ final class DongleController: ObservableObject {
             let response = try await command(0x14, payload: [connected ? 1 : 0])
             try checkAck(response)
             for attempt in 0...10 {
-                await refresh()
+                guard await refresh() else { return }
                 if connected ? connectionState >= 2 : connectionState <= 1 { return }
                 if attempt < 10 { try await Task.sleep(nanoseconds: 2_000_000_000) }
             }

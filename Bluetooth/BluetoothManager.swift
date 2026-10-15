@@ -15,22 +15,35 @@ private func BTTrace(_ format: String, _ args: CVarArg...) {
     os_log("%{private}s", log: btLog, type: .debug, msg)
 }
 
-// MARK: - Bluetooth Manager
-
-final class BluetoothManager: NSObject, ObservableObject, @unchecked Sendable {
-    @Published var state: ConnectionState = .disconnected
-    @Published var pairedDevices: [IOBluetoothDevice] = []
+@MainActor
+final class BluetoothManager: NSObject, ObservableObject {
+    @Published private(set) var state: ConnectionState = .disconnected
+    @Published private(set) var pairedDevices: [IOBluetoothDevice] = []
     @Published private(set) var userDisconnected = false
-    private var scanID = UUID()
-
-    private var rfcommChannel: IOBluetoothRFCOMMChannel?
-    private var rfcommOpenID = UUID()
-    private var receiveBuffer = Data()
-
-    private var pendingCallbacks: [String: (GAIAProtocol.Response) -> Void] = [:]
     var notificationHandler: ((GAIAProtocol.Response) -> Void)?
-    private let queue = DispatchQueue(label: "bluetooth.gaia", qos: .userInitiated)
 
+    private struct Attempt {
+        let id: UUID
+        let device: IOBluetoothDevice
+        let delegate: BluetoothAttemptDelegate
+    }
+
+    private enum Lifecycle {
+        case idle
+        case scanning(UUID)
+        case discovering(Attempt)
+        case opening(Attempt, IOBluetoothRFCOMMChannel)
+        case connected(Attempt, IOBluetoothRFCOMMChannel, GAIACommandSession)
+        case restarting(Attempt)
+        case failed(String)
+    }
+
+    private var lifecycle: Lifecycle = .idle
+    private var generation = UUID()
+    private var attemptDeadline: Task<Void, Never>?
+    // The SDK exposes no SDP cancellation or target-retention guarantee. Retain at most one unresolved target.
+    private var pendingSDP: Attempt?
+    private let ioQueue = DispatchQueue(label: "bluetooth.gaia", qos: .userInitiated)
     private var sigTermSource: DispatchSourceSignal?
 
     override init() {
@@ -38,7 +51,6 @@ final class BluetoothManager: NSObject, ObservableObject, @unchecked Sendable {
         signal(SIGTERM, SIG_IGN)
         let source = DispatchSource.makeSignalSource(signal: SIGTERM, queue: .main)
         source.setEventHandler { [weak self] in
-            BTLog("[BT] SIGTERM received, disconnecting...")
             self?.disconnect()
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { exit(0) }
         }
@@ -46,45 +58,47 @@ final class BluetoothManager: NSObject, ObservableObject, @unchecked Sendable {
         sigTermSource = source
     }
 
-    // MARK: - Device Discovery
-
-    func scanForDevices() {
-        let request = UUID()
-        scanID = request
-        state = .scanning
-        BTLog("[BT] Scanning for paired devices...")
-        DispatchQueue.main.asyncAfter(deadline: .now() + 8) { [weak self] in
-            guard let self, self.scanID == request, self.state == .scanning else { return }
-            self.state = .error("Bluetooth discovery timed out. You can still use the BTD 700 tab.")
-        }
-        // IOBluetooth can wait for CoreBluetooth initialization. Keep the menu bar UI responsive.
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            guard let devices = IOBluetoothDevice.pairedDevices() as? [IOBluetoothDevice] else {
-                DispatchQueue.main.async {
-                    BTLog("[BT] ERROR: Cannot access paired devices")
-                    guard let self, self.scanID == request else { return }
-                    self.state = .error("Cannot access paired devices. Check Bluetooth permission.")
-                }
-                return
-            }
-
-            let matching = devices.filter { device in
-                let name = device.name ?? ""
-                return name.localizedCaseInsensitiveContains("HDB") ||
-                       name.localizedCaseInsensitiveContains("Sennheiser") ||
-                       name.localizedCaseInsensitiveContains("630")
-            }
-            DispatchQueue.main.async {
-                guard let self, self.scanID == request else { return }
-                BTLog("[BT] Found %d total paired devices", devices.count)
-                BTLog("[BT] Filtered to %d matching devices", matching.count)
-                self.pairedDevices = matching
-                self.state = .disconnected
-            }
+    private func transition(to next: Lifecycle) {
+        lifecycle = next
+        switch next {
+        case .idle: state = .disconnected
+        case .scanning: state = .scanning
+        case .discovering, .opening, .restarting: state = .connecting
+        case .connected: state = .connected
+        case .failed(let message): state = .error(message)
         }
     }
 
-    // MARK: - SDP Channel Discovery
+    func scanForDevices() {
+        guard state != .connected, state != .connecting else { return }
+        let id = UUID()
+        generation = id
+        transition(to: .scanning(id))
+        DispatchQueue.main.asyncAfter(deadline: .now() + 8) { [weak self] in
+            guard let self, case .scanning(let currentID) = self.lifecycle,
+                  currentID == id, self.generation == id else { return }
+            self.transition(to: .failed("Bluetooth discovery timed out. You can still use the BTD 700 tab."))
+        }
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let devices = IOBluetoothDevice.pairedDevices() as? [IOBluetoothDevice]
+            let matching = devices?.filter { device in
+                let name = device.name ?? ""
+                return name.localizedCaseInsensitiveContains("HDB") ||
+                    name.localizedCaseInsensitiveContains("Sennheiser") ||
+                    name.localizedCaseInsensitiveContains("630")
+            }
+            DispatchQueue.main.async {
+                guard let self, case .scanning(let currentID) = self.lifecycle,
+                      currentID == id, self.generation == id else { return }
+                guard let matching else {
+                    self.transition(to: .failed("Cannot access paired devices. Check Bluetooth permission."))
+                    return
+                }
+                self.pairedDevices = matching
+                self.transition(to: .idle)
+            }
+        }
+    }
 
     private func findGAIAChannel(_ device: IOBluetoothDevice) -> BluetoothRFCOMMChannelID? {
         guard let services = device.services as? [IOBluetoothSDPServiceRecord] else {
@@ -168,264 +182,242 @@ final class BluetoothManager: NSObject, ObservableObject, @unchecked Sendable {
         return nil
     }
 
-    // MARK: - Connection
-
     func connect(to device: IOBluetoothDevice) {
+        generation = UUID()
         userDisconnected = false
-        if let channel = rfcommChannel {
-            channel.setDelegate(nil)
-            channel.close()
-            rfcommChannel = nil
-        }
-        state = .connecting
-        receiveBuffer = Data()
-
-        BTLog("[BT] Connecting to \"%@\" addr=%@", device.name ?? "<nil>", device.addressString ?? "<nil>")
-
-        if !device.isConnected() {
-            state = .error("Headphones not connected. Connect them in Bluetooth settings first.")
+        endConnection(as: .idle)
+        guard device.isConnected() else {
+            transition(to: .failed("Headphones not connected. Connect them in Bluetooth settings first."))
             return
         }
-
-        // Try to find GAIA channel from cached SDP records
+        let attempt = Attempt(id: generation, device: device,
+                              delegate: BluetoothAttemptDelegate(manager: self, id: generation))
+        transition(to: .discovering(attempt))
+        let expiresAt = ContinuousClock.now.advanced(by: .seconds(10))
+        attemptDeadline = Task { [weak self] in
+            do { try await Task.sleep(until: expiresAt, clock: .continuous) } catch { return }
+            guard let self, self.generation == attempt.id else { return }
+            switch self.lifecycle {
+            case .discovering, .opening:
+                self.endConnection(as: .failed("Connection timed out. Try power-cycling headphones."))
+            default: break
+            }
+        }
         if let channelID = findGAIAChannel(device) {
-            BTLog("[BT] Found GAIA on cached SDP channel %d", channelID)
-            openRFCOMM(device: device, channelID: channelID)
+            openRFCOMM(attempt: attempt, channelID: channelID)
         } else {
-            // Do SDP query to discover GAIA service
-            BTLog("[BT] GAIA not in cached SDP, querying...")
-            device.performSDPQuery(self)
+            guard pendingSDP == nil else {
+                endConnection(as: .failed("Bluetooth service discovery is still pending. Try again after it completes."))
+                return
+            }
+            pendingSDP = attempt
+            let result = device.performSDPQuery(attempt.delegate)
+            guard result == kIOReturnSuccess else {
+                pendingSDP = nil
+                endConnection(as: .failed("Bluetooth service discovery could not start: \(result)"))
+                return
+            }
         }
     }
 
-    @objc func sdpQueryComplete(_ device: IOBluetoothDevice!, status: IOReturn) {
-        guard !userDisconnected, state == .connecting else { return }
-        if status == kIOReturnSuccess, let channelID = findGAIAChannel(device) {
-            BTLog("[BT] SDP query found GAIA on channel %d", channelID)
-            openRFCOMM(device: device, channelID: channelID)
-        } else {
-            BTLog("[BT] GAIA service not found in SDP (status=%d)", status)
-            DispatchQueue.main.async { self.state = .error("GAIA service not found. Try re-pairing headphones.") }
-        }
-    }
-
-    private func openRFCOMM(device: IOBluetoothDevice, channelID: BluetoothRFCOMMChannelID) {
-        let request = UUID()
-        rfcommOpenID = request
-        BTLog("[BT] Opening RFCOMM channel %d...", channelID)
-        var channel: IOBluetoothRFCOMMChannel?
-        let result = device.openRFCOMMChannelAsync(&channel, withChannelID: channelID, delegate: self)
-
-        guard result == kIOReturnSuccess, let channel else {
-            BTLog("[BT] ERROR: Failed to open RFCOMM channel: %d", result)
-            DispatchQueue.main.async { self.state = .error("Failed to open RFCOMM channel: \(result)") }
+    fileprivate func sdpQueryComplete(id: UUID, device: IOBluetoothDevice, status: IOReturn) {
+        guard let query = pendingSDP, query.id == id else { return }
+        pendingSDP = nil
+        guard generation == id, case .discovering(let attempt) = lifecycle,
+              attempt.id == id, device === attempt.device else { return }
+        guard status == kIOReturnSuccess, let channelID = findGAIAChannel(device) else {
+            endConnection(as: .failed("GAIA service not found. Try re-pairing headphones."))
             return
         }
+        openRFCOMM(attempt: attempt, channelID: channelID)
+    }
 
-        rfcommChannel = channel
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 10) { [weak self] in
-            guard let self, self.rfcommOpenID == request, self.state == .connecting else { return }
-            BTLog("[BT] Connection timeout")
-            self.disconnect()
-            self.state = .error("Connection timed out. Try power-cycling headphones.")
+    private func openRFCOMM(attempt: Attempt, channelID: BluetoothRFCOMMChannelID) {
+        // Native opens can reuse an existing channel. Finish its queued close before opening a replacement.
+        ioQueue.async { [weak self] in
+            DispatchQueue.main.async {
+                self?.beginRFCOMMOpen(attempt: attempt, channelID: channelID)
+            }
         }
+    }
+
+    private func beginRFCOMMOpen(attempt: Attempt, channelID: BluetoothRFCOMMChannelID) {
+        guard generation == attempt.id, case .discovering = lifecycle else { return }
+        var channel: IOBluetoothRFCOMMChannel?
+        let result = attempt.device.openRFCOMMChannelAsync(&channel, withChannelID: channelID,
+                                                          delegate: attempt.delegate)
+        guard result == kIOReturnSuccess, let channel else {
+            endConnection(as: .failed("Failed to open RFCOMM channel: \(result)"))
+            return
+        }
+        transition(to: .opening(attempt, channel))
     }
 
     func disconnect(userInitiated: Bool = false) {
-        rfcommOpenID = UUID()
+        generation = UUID()
         if userInitiated { userDisconnected = true }
-        BTLog("[BT] Disconnecting...")
-        if let channel = rfcommChannel {
-            channel.setDelegate(nil)
-            channel.close()
-        }
-        rfcommChannel = nil
-        receiveBuffer = Data()
-        queue.async { self.pendingCallbacks.removeAll() }
-        state = .disconnected
-        BTLog("[BT] Disconnected")
+        endConnection(as: .idle)
     }
 
-    /// Reconnect the same paired device after an explicitly requested settings restart.
-    @MainActor func restartAndReconnect() async throws {
-        guard let device = rfcommChannel?.getDevice(), state == .connected else {
-            throw BluetoothError.notConnected
+    private func endConnection(as next: Lifecycle) {
+        attemptDeadline?.cancel()
+        attemptDeadline = nil
+        switch lifecycle {
+        case .connected(let attempt, let channel, let session):
+            session.close()
+            close(channel, retaining: attempt.delegate)
+        case .opening(let attempt, let channel):
+            close(channel, retaining: attempt.delegate)
+        default: break
         }
-        _ = try await sendCommand(vendor: GAIAProtocol.vendorSennheiser, command: GAIAProtocol.cmdReboot)
-        disconnect()
-        state = .connecting
+        transition(to: next)
+    }
+
+    private func close(_ channel: IOBluetoothRFCOMMChannel, retaining delegate: BluetoothAttemptDelegate) {
+        ioQueue.async {
+            channel.setDelegate(nil)
+            channel.close()
+            withExtendedLifetime(delegate) {}
+        }
+    }
+
+    func restartAndReconnect() async throws {
+        guard case .connected(let attempt, _, _) = lifecycle else { throw BluetoothError.notConnected }
+        let id = generation
         do {
-            try await Task.sleep(nanoseconds: 6_000_000_000)
-            guard !userDisconnected else { throw CancellationError() }
-            // IOBluetooth's synchronous connection can wait for paging. Keep it off the UI thread.
+            _ = try await sendCommand(vendor: GAIAProtocol.vendorSennheiser, command: GAIAProtocol.cmdReboot)
+            try Task.checkCancellation()
+            guard generation == id else { throw CancellationError() }
+            endConnection(as: .restarting(attempt))
+            try await Task.sleep(for: .seconds(6))
+            guard generation == id else { throw CancellationError() }
             let result: IOReturn = await withCheckedContinuation { continuation in
+                let device = attempt.device
                 DispatchQueue.global(qos: .userInitiated).async {
                     continuation.resume(returning: device.isConnected() ? kIOReturnSuccess : device.openConnection())
                 }
             }
-            guard !userDisconnected, !Task.isCancelled else { throw CancellationError() }
-            guard result == kIOReturnSuccess, device.isConnected() else {
-                state = .error("Headphones restarted, but the Mac could not reconnect. Connect HDB 630 in Bluetooth settings.")
+            try Task.checkCancellation()
+            guard generation == id else { throw CancellationError() }
+            guard result == kIOReturnSuccess, attempt.device.isConnected() else {
+                endConnection(as: .failed("Headphones restarted, but the Mac could not reconnect. Connect HDB 630 in Bluetooth settings."))
                 throw BluetoothError.notConnected
             }
-            connect(to: device)
+            connect(to: attempt.device)
         } catch {
-            if state == .connecting { state = .disconnected }
+            if generation == id, case .restarting = lifecycle { endConnection(as: .idle) }
             throw error
         }
     }
 
-    // MARK: - Send GAIA Command
+    func sendCommand(vendor: UInt16, command: UInt16, payload: [UInt8] = [],
+                     timeout: TimeInterval = 5) async throws -> GAIAProtocol.Response {
+        guard case .connected(_, _, let session) = lifecycle else { throw BluetoothError.notConnected }
+        return try await session.send(vendor: vendor, command: command, payload: payload, timeout: timeout)
+    }
 
-    func sendCommand(vendor: UInt16, command: UInt16, payload: [UInt8] = [], timeout: TimeInterval = 5.0) async throws -> GAIAProtocol.Response {
-        guard let channel = rfcommChannel, state == .connected else {
-            throw BluetoothError.notConnected
-        }
-
-        let packet = GAIAProtocol.buildPacket(vendor: vendor, command: command, payload: payload)
-        let responseCmd = GAIAProtocol.responseCommandId(for: command)
-        let key = GAIAProtocol.callbackKey(vendor: vendor, responseCmd: responseCmd)
-
-        return try await withCheckedThrowingContinuation { continuation in
-            nonisolated(unsafe) var resumed = false
-            let registered = queue.sync { () -> Bool in
-                guard pendingCallbacks[key] == nil else { return false }
-                pendingCallbacks[key] = { response in
-                    guard !resumed else { return }
-                    resumed = true
-                    if response.isError {
-                        continuation.resume(throwing: BluetoothError.commandError(command))
-                    } else {
-                        continuation.resume(returning: response)
-                    }
+    private func write(_ packet: Data, requestID: UUID, attemptID: UUID,
+                       channel: IOBluetoothRFCOMMChannel, session: GAIACommandSession) {
+        ioQueue.async { [weak self] in
+            let admitted = DispatchQueue.main.sync {
+                MainActor.assumeIsolated {
+                    guard let self, self.generation == attemptID,
+                          case .connected(let attempt, let currentChannel, let currentSession) = self.lifecycle,
+                          attempt.id == attemptID, currentChannel === channel,
+                          currentSession === session else { return false }
+                    return session.beginWrite(id: requestID)
                 }
-                return true
             }
-            guard registered else {
-                continuation.resume(throwing: BluetoothError.commandInFlight(command))
-                return
-            }
-
+            guard admitted else { return }
             var bytes = [UInt8](packet)
-            BTTrace("[BT] TX %d bytes: %@", bytes.count, bytes.map { String(format: "%02X", $0) }.joined(separator: " "))
-            let result = channel.writeSync(&bytes, length: UInt16(bytes.count))
-            if result != kIOReturnSuccess {
-                queue.async { [weak self] in
-                    guard !resumed else { return }
-                    resumed = true
-                    self?.pendingCallbacks.removeValue(forKey: key)
-                    continuation.resume(throwing: BluetoothError.writeFailed(result))
-                }
-                return
+            BTTrace("[BT] TX %d bytes: %@", bytes.count,
+                    bytes.map { String(format: "%02X", $0) }.joined(separator: " "))
+            let status = channel.writeSync(&bytes, length: UInt16(bytes.count))
+            guard status != kIOReturnSuccess else { return }
+            DispatchQueue.main.async {
+                guard let self, self.generation == attemptID,
+                      case .connected(_, let currentChannel, let currentSession) = self.lifecycle,
+                      currentChannel === channel, currentSession === session else { return }
+                session.writeFailed(id: requestID, status: status)
             }
-            queue.asyncAfter(deadline: .now() + timeout) { [weak self] in
-                guard !resumed else { return }
-                resumed = true
-                self?.pendingCallbacks.removeValue(forKey: key)
-                continuation.resume(throwing: BluetoothError.timeout)
-            }
+        }
+    }
+
+    fileprivate func channelOpened(id: UUID, channel: IOBluetoothRFCOMMChannel, status: IOReturn) {
+        guard generation == id, case .opening(let attempt, let expected) = lifecycle,
+              attempt.id == id, expected === channel else { return }
+        guard status == kIOReturnSuccess else {
+            endConnection(as: .failed("RFCOMM channel open failed: \(status)"))
+            return
+        }
+        attemptDeadline?.cancel()
+        attemptDeadline = nil
+        let session = GAIACommandSession(write: { [weak self, weak channel] requestID, packet in
+            guard let self, let channel,
+                  case .connected(_, let currentChannel, let session) = self.lifecycle,
+                  self.generation == id, currentChannel === channel else { return }
+            self.write(packet, requestID: requestID, attemptID: id, channel: channel, session: session)
+        }, notification: { [weak self] response in
+            guard let self, self.generation == id, case .connected = self.lifecycle else { return }
+            self.notificationHandler?(response)
+        })
+        transition(to: .connected(attempt, channel, session))
+    }
+
+    fileprivate func channelReceived(id: UUID, channel: IOBluetoothRFCOMMChannel, data: Data) {
+        guard generation == id, case .connected(_, let expected, let session) = lifecycle,
+              expected === channel else { return }
+        BTTrace("[BT] RX %d bytes: %@", data.count,
+                data.map { String(format: "%02X", $0) }.joined(separator: " "))
+        session.receive(data)
+    }
+
+    fileprivate func channelClosed(id: UUID, channel: IOBluetoothRFCOMMChannel) {
+        guard generation == id else { return }
+        switch lifecycle {
+        case .connected(_, let expected, _), .opening(_, let expected):
+            guard expected === channel else { return }
+            endConnection(as: .idle)
+        default: break
         }
     }
 }
 
-// MARK: - RFCOMM Channel Delegate
+private final class BluetoothAttemptDelegate: NSObject, IOBluetoothRFCOMMChannelDelegate, @unchecked Sendable {
+    private weak var manager: BluetoothManager?
+    private let id: UUID
 
-extension BluetoothManager: IOBluetoothRFCOMMChannelDelegate {
-    func rfcommChannelData(
-        _ rfcommChannel: IOBluetoothRFCOMMChannel!,
-        data dataPointer: UnsafeMutableRawPointer!,
-        length dataLength: Int
-    ) {
-        let newData = Data(bytes: dataPointer, count: dataLength)
-        BTTrace("[BT] RX %d bytes: %@", dataLength, newData.map { String(format: "%02X", $0) }.joined(separator: " "))
-        queue.async { [weak self] in
-            self?.handleReceivedData(newData)
-        }
+    init(manager: BluetoothManager, id: UUID) {
+        self.manager = manager
+        self.id = id
     }
 
-    func rfcommChannelOpenComplete(_ rfcommChannel: IOBluetoothRFCOMMChannel!, status error: IOReturn) {
-        BTLog("[BT] rfcommChannelOpenComplete — status: %d (0=success)", error)
-        DispatchQueue.main.async {
-            guard !self.userDisconnected, self.rfcommChannel === rfcommChannel else { return }
-            if error == kIOReturnSuccess {
-                BTLog("[BT] RFCOMM channel opened, connected")
-                self.state = .connected
-            } else {
-                BTLog("[BT] ERROR: RFCOMM channel open failed: %d", error)
-                rfcommChannel.setDelegate(nil)
-                rfcommChannel.close()
-                self.rfcommChannel = nil
-                self.state = .error("RFCOMM channel open failed: \(error)")
-            }
-        }
+    @objc func sdpQueryComplete(_ device: IOBluetoothDevice!, status: IOReturn) {
+        guard let device else { return }
+        let manager = manager
+        let id = id
+        DispatchQueue.main.async { manager?.sdpQueryComplete(id: id, device: device, status: status) }
     }
 
-    func rfcommChannelClosed(_ rfcommChannel: IOBluetoothRFCOMMChannel!) {
-        BTLog("[BT] RFCOMM channel closed")
-        DispatchQueue.main.async {
-            self.rfcommChannel = nil
-            if self.state == .connected {
-                self.state = .disconnected
-            }
-        }
+    func rfcommChannelData(_ channel: IOBluetoothRFCOMMChannel!, data pointer: UnsafeMutableRawPointer!, length: Int) {
+        guard let channel, let pointer, length > 0 else { return }
+        let data = Data(bytes: pointer, count: length)
+        let manager = manager
+        let id = id
+        DispatchQueue.main.async { manager?.channelReceived(id: id, channel: channel, data: data) }
     }
 
-    // MARK: - GAIA v3 Packet Parser
-
-    private func handleReceivedData(_ data: Data) {
-        receiveBuffer.append(data)
-
-        while receiveBuffer.count >= GAIAProtocol.headerSize {
-            // Look for FF 03 header
-            guard receiveBuffer[receiveBuffer.startIndex] == 0xFF,
-                  receiveBuffer[receiveBuffer.startIndex + 1] == 0x03 else {
-                receiveBuffer = Data(receiveBuffer.dropFirst(1))
-                continue
-            }
-
-            guard let (response, consumed) = GAIAProtocol.parse(receiveBuffer) else {
-                // Not enough data yet — wait for more
-                break
-            }
-
-            receiveBuffer = Data(receiveBuffer.dropFirst(consumed))
-
-            BTTrace("[BT] GAIA vendor=0x%04X cmd=0x%04X payload=%d bytes",
-                  response.vendorId, response.commandId, response.payload.count)
-
-            let key = GAIAProtocol.callbackKey(vendor: response.vendorId, responseCmd: response.commandId)
-            let errorKey = GAIAProtocol.callbackKey(vendor: response.vendorId,
-                                                    responseCmd: response.commandId & ~UInt16(0x0080))
-            if let callback = pendingCallbacks.removeValue(forKey: key)
-                ?? (response.commandId & 0x0180 == 0x0180 ? pendingCallbacks.removeValue(forKey: errorKey) : nil) {
-                callback(response)
-            } else {
-                // Unsolicited notification
-                DispatchQueue.main.async { [weak self] in
-                    self?.notificationHandler?(response)
-                }
-            }
-        }
+    func rfcommChannelOpenComplete(_ channel: IOBluetoothRFCOMMChannel!, status: IOReturn) {
+        guard let channel else { return }
+        let manager = manager
+        let id = id
+        DispatchQueue.main.async { manager?.channelOpened(id: id, channel: channel, status: status) }
     }
-}
 
-// MARK: - Errors
-
-enum BluetoothError: LocalizedError {
-    case notConnected
-    case writeFailed(IOReturn)
-    case timeout
-    case commandError(UInt16)
-    case commandInFlight(UInt16)
-
-    var errorDescription: String? {
-        switch self {
-        case .notConnected: return "Not connected to headphones"
-        case .writeFailed(let code): return "Bluetooth write failed: \(code)"
-        case .timeout: return "Command timed out"
-        case .commandError(let cmd): return "Headphones rejected command 0x\(String(format: "%04X", cmd))"
-        case .commandInFlight(let cmd): return "Command 0x\(String(format: "%04X", cmd)) is already in flight"
-        }
+    func rfcommChannelClosed(_ channel: IOBluetoothRFCOMMChannel!) {
+        guard let channel else { return }
+        let manager = manager
+        let id = id
+        DispatchQueue.main.async { manager?.channelClosed(id: id, channel: channel) }
     }
 }
