@@ -25,7 +25,7 @@ Only one process owned the GAIA RFCOMM connection at a time. A temporary probe c
 - Positive +1.5 dB and negative -2 dB pre-gain notifications agree with getters after the fix. The installed UI displayed -1.5 dB after its notification, and a separate connection returned `FF F1`.
 - The installed app reconnected and displayed the saved PEQ edits after a client restart. Headroom remained 3 dB throughout these checks, matching getter `00 1E`.
 
-These checks verify control writes, stored values, notification decoding, and client reconnect behavior. They do not measure acoustic frequency response or listening quality. No headphone power cycle was performed during this pass.
+These checks verify control writes, stored values, notification decoding, and client reconnect behavior. They do not measure acoustic frequency response or listening quality. No headphone power cycle was performed during this pass. A subsequent [hardware restart verification](12-eq-restart-verification-2026-10-15.md) checks persistence through normal firmware reboots.
 
 ## Restoration
 
