@@ -104,7 +104,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
                 self?.bluetooth.disconnect()
             }
         }
-
     }
 
     private func recoverHeadphones() {
@@ -254,11 +253,9 @@ private struct ControlRootView: View {
                 Group {
                     if selectedTab == 0 {
                         StatusBarView(controller: controller, bluetooth: bluetooth)
-                            .environmentObject(bluetooth)
                     } else {
                         ScrollView(showsIndicators: false) {
                             DongleView(dongle: dongle)
-                                .environmentObject(bluetooth)
                         }
                     }
                 }

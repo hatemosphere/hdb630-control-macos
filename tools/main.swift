@@ -68,7 +68,6 @@ func main() {
 
     // 1. Popover — Equalizer mode
     let popover = StatusBarView(controller: controller, bluetooth: bluetooth)
-        .environmentObject(bluetooth)
         .frame(width: 360, height: 610)
         .background(ControlStyle.background)
         .tint(ControlStyle.accent)
@@ -91,7 +90,6 @@ func main() {
     // 3. Popover — Parametric EQ mode
     controller.audioMode = .parametricEq
     let popoverPEQ = StatusBarView(controller: controller, bluetooth: bluetooth)
-        .environmentObject(bluetooth)
         .frame(width: 360, height: 610)
         .background(ControlStyle.background)
         .tint(ControlStyle.accent)

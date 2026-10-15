@@ -3,7 +3,6 @@ import Foundation
 @main
 struct GAIATests {
     static func main() {
-        var failures: [String] = []
         func check(_ condition: Bool, _ name: String) {
             if !condition {
                 FileHandle.standardError.write(Data("FAIL: \(name)\n".utf8))
@@ -33,13 +32,9 @@ struct GAIATests {
             let remaining = stream.dropFirst(first.consumed)
             check(GAIAProtocol.parse(remaining)?.response.payload == Data([8]), "second sliced frame")
         } else {
-            failures.append("concatenated frames")
+            check(false, "concatenated frames")
         }
         check(GAIAProtocol.responseCommandId(for: 0x1001) == 0x1101, "request correlation")
-        if !failures.isEmpty {
-            for failure in failures { print("FAIL: \(failure)") }
-            exit(1)
-        }
         print("GAIA tests passed: wire bytes, sliced payloads, fragments, headers and concatenated frames")
     }
 }

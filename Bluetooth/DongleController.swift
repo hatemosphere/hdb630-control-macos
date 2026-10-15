@@ -407,7 +407,7 @@ final class DongleController: ObservableObject {
         do {
             let response = try await command(0x04, payload: [UInt8(codec.rawValue & 0xFF), UInt8(codec.rawValue >> 8)])
             try checkAck(response)
-            guard await refresh() else { return }
+            await refresh()
         } catch { errorMessage = error.localizedDescription }
     }
 
