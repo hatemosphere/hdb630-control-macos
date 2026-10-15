@@ -98,9 +98,6 @@ final class HeadphoneController: ObservableObject {
         eqLockUntil = .distantPast
     }
 
-    /// Poll settings that lack push notifications.
-    /// Everything else (ANC, transparency, codec, bass boost, podcast, connections)
-    /// updates via push notifications registered in registerNotifications().
     func pollState() async {
         async let b: Void = fetchBattery()
         async let eq: Void = fetchEQ()
@@ -113,7 +110,8 @@ final class HeadphoneController: ObservableObject {
         async let ac: Void = fetchAutoCall()
         async let cc: Void = fetchComfortCall()
         async let ap: Void = fetchAutoPowerOff()
-        _ = await (b, eq, cf, st, aup, oh, ph, sp, ac, cc, ap)
+        async let dl: Void = fetchDeviceList()
+        _ = await (b, eq, cf, st, aup, oh, ph, sp, ac, cc, ap, dl)
     }
 
     // MARK: - Diagnostics Statistics

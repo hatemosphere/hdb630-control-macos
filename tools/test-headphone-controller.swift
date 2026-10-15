@@ -13,6 +13,7 @@ final class BluetoothManager: ObservableObject {
     var notificationHandler: ((GAIAProtocol.Response) -> Void)?
     var sent: [Command] = []
     var pairedCount = 0
+    var disconnectedDeviceIndices: Set<UInt8> = []
     var battery: UInt8 = 81
     var compatibility: UInt8 = 1
     var restartCount = 0
@@ -37,7 +38,8 @@ final class BluetoothManager: ObservableObject {
         case GAIAProtocol.cmdGetEQ: bytes = [0]
         case GAIAProtocol.cmdGetPairedDeviceListSize: bytes = [UInt8(pairedCount >> 8), UInt8(pairedCount & 0xFF)]
         case GAIAProtocol.cmdGetDeviceInfo:
-            bytes = pairedCount > 256 ? [0xFF, 0, 0] : [payload[0], payload[0], 1] + Array("Device \(payload[0])".utf8)
+            let connected: UInt8 = disconnectedDeviceIndices.contains(payload[0]) ? 0 : 1
+            bytes = pairedCount > 256 ? [0xFF, 0, 0] : [payload[0], payload[0], connected] + Array("Device \(payload[0])".utf8)
         case GAIAProtocol.cmdSetBluetoothCompatibility:
             compatibility = payload[0]
             bytes = []
@@ -97,6 +99,28 @@ struct HeadphoneControllerTests {
         precondition(manager.writes(GAIAProtocol.cmdGetDeviceInfo) == [[0], [1]])
         precondition(controller.pairedDevices.map(\.name) == ["Device 0", "Device 1"])
         print("PASS malformed paired count is rejected and valid devices retain byte indices")
+    }
+
+    @MainActor
+    static func missedConnectionNotifications() async {
+        let (manager, controller) = await ready()
+        manager.pairedCount = 2
+        manager.disconnectedDeviceIndices = [0]
+        manager.state = .disconnected
+        manager.state = .connected
+        await waitFor("paired devices after reconnect") { controller.pairedDevices.count == 2 }
+        precondition(controller.pairedDevices.map(\.isConnected) == [false, true])
+
+        manager.disconnectedDeviceIndices.remove(0)
+        await controller.pollState()
+        precondition(controller.pairedDevices.map(\.isConnected) == [true, true],
+                     "A missed connection notification left the paired-device checkmark stale")
+
+        manager.disconnectedDeviceIndices.insert(0)
+        await controller.pollState()
+        precondition(controller.pairedDevices.map(\.isConnected) == [false, true],
+                     "A missed disconnection notification left the paired-device checkmark stale")
+        print("PASS polling refreshes paired-device checkmarks when connection notifications are missed")
     }
 
     @MainActor
@@ -310,6 +334,7 @@ struct HeadphoneControllerTests {
             return
         }
         await malformedCount()
+        await missedConnectionNotifications()
         await lateRead()
         await lateWriteError()
         await eqWriteSession()

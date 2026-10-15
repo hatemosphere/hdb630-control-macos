@@ -115,3 +115,15 @@ The installed bundle matches the signed Release output byte for byte and passes 
 The installed app passed live BTD 700 reads, external USB-rate UI updates at 48 to 96 to 48 kHz, Signal Lab rendering, and App settings Quit with a recorded exit code 0. It relaunched successfully and is left running from the installed path. The final USB rate is 48 kHz and the default output remains MacBook Pro Speakers. No new app crash report appeared. Physical headset control remains unverified because the headphone link was disconnected.
 
 Installation receipts and the complete check summary are in `build/review-2026-10-15/installation/verification.md` and `receipt.json`. The reviewed source, regression checks, and this report accompany the installed build.
+
+## Connection checkmark follow-up
+
+Physical headphone restart testing exposed a stale BTD 700 connection checkmark. The startup paired-device snapshot could precede the dongle's reconnection. The controller then depended on connection notifications and never reconciled that row during ordinary UI polling. A fresh app session showed the correct state.
+
+`HeadphoneController.pollState()` now includes the existing `fetchDeviceList()` operation. The visible popover's existing polling and Signal Lab's existing refresh calls can recover from a missed connection notification. The device-list reader retains its cancellation and connection-generation checks.
+
+The new `missedConnectionNotifications` regression recreates a reconnect with an initially disconnected paired device. Without delivering notifications, it changes that device to connected and then disconnected. The old controller fails with `A missed connection notification left the paired-device checkmark stale`. The updated controller passes both state transitions. All six offline checks and the Release app build pass. Independent review reproduced the failure against the old controller, passed the updated controller tests, and found no actionable regression.
+
+A locally signed Release candidate passed two physical HDB 630 restarts, first disabling High Resolution and then restoring it. Both the Mac and BTD 700 checkmarks recovered without restarting the app. Native IOBluetooth monitoring recorded connected, disconnected, and connected for each restart. The candidate process remained PID 57539 throughout both cycles. The headphones ran firmware 3.33.3 and the dongle ran firmware 3.11.0. Fresh HID reads confirmed the dongle connected with aptX Adaptive at 24 bit and 48 kHz.
+
+High Resolution, the other recorded headphone settings, MacBook Pro Speakers output, and the dongle's 48 kHz USB format were restored. The tested candidate executable SHA256 is `8fe7f91033d61795e45d8d7e8cb24697d01d1179adbce2b126dd9f02ba361eab`. Local evidence is under `build/checkmark-fix/`, including the before-fix failure, final tests, independent review, and native connection transitions. Those raw receipts are ignored local files. This follow-up verifies the tested restart path, not physical USB hotplug, sleep and wake, every EQ setting, or audible fidelity.
