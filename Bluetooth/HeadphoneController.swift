@@ -521,6 +521,8 @@ final class HeadphoneController: ObservableObject {
     /// Call synchronously before the async Task to prevent notification races.
     func lockEQ(preset: EQPreset) {
         guard preset != .custom else { return }
+        bandDebounceTasks.values.forEach { $0.cancel() }
+        bandDebounceTasks.removeAll()
         eqPreset = preset
         eqGains = preset.gains.map { Double($0) / 10.0 }
         eqLockUntil = Date().addingTimeInterval(5)
@@ -552,7 +554,8 @@ final class HeadphoneController: ObservableObject {
     }
 
     func setEQBand(_ band: Int, gain: Double) {
-        guard band >= 0, band < 5 else { return }
+        guard band >= 0, band < 5, gain.isFinite else { return }
+        let gain = min(max(gain, eqConfig.minGainDB), eqConfig.maxGainDB)
         eqGains[band] = gain
         eqPreset = .custom
         eqLockUntil = Date().addingTimeInterval(2)
@@ -685,6 +688,7 @@ final class HeadphoneController: ObservableObject {
 
     func setPEQFrequency(_ stage: Int, hz: Int) {
         guard stage >= 0, stage < 5 else { return }
+        let hz = min(max(hz, 20), 20_000)
         peqStages[stage].frequency = hz
         let raw = UInt16(clamping: hz)
         debouncePEQ(key: "freq\(stage)") {
@@ -695,7 +699,8 @@ final class HeadphoneController: ObservableObject {
     }
 
     func setPEQQ(_ stage: Int, q: Double) {
-        guard stage >= 0, stage < 5 else { return }
+        guard stage >= 0, stage < 5, q.isFinite else { return }
+        let q = min(max(q, 0.1), 10)
         peqStages[stage].q = q
         let raw = UInt16(clamping: Int(round(q * 4096.0)))
         debouncePEQ(key: "q\(stage)") {
@@ -706,7 +711,8 @@ final class HeadphoneController: ObservableObject {
     }
 
     func setPEQGain(_ stage: Int, db: Double) {
-        guard stage >= 0, stage < 5 else { return }
+        guard stage >= 0, stage < 5, db.isFinite else { return }
+        let db = min(max(db, eqConfig.minGainDB), eqConfig.maxGainDB)
         peqStages[stage].gain = db
         let raw = Int16(clamping: Int(round(db * 10.0)))
         let unsigned = UInt16(bitPattern: raw)
@@ -726,6 +732,8 @@ final class HeadphoneController: ObservableObject {
     }
 
     func setPreGain(_ db: Double) {
+        guard db.isFinite else { return }
+        let db = min(max(db, eqConfig.minGainDB), eqConfig.maxGainDB)
         preGainDB = db
         let raw = Int16(clamping: Int(round(db * 10.0)))
         let unsigned = UInt16(bitPattern: raw)
@@ -947,8 +955,11 @@ final class HeadphoneController: ObservableObject {
             }
         case GAIAProtocol.respPreGain, GAIAProtocol.notifPreGain:
             if response.payload.count >= 2 {
-                let raw = Int16(bitPattern: UInt16(response.payload[0]) << 8 | UInt16(response.payload[1]))
-                preGainDB = Double(raw) / 10.0
+                // Firmware sends pre-gain notifications little-endian and GET replies big-endian.
+                let raw = response.commandId == GAIAProtocol.notifPreGain
+                    ? UInt16(response.payload[1]) << 8 | UInt16(response.payload[0])
+                    : UInt16(response.payload[0]) << 8 | UInt16(response.payload[1])
+                preGainDB = Double(Int16(bitPattern: raw)) / 10.0
             }
         default:
             break

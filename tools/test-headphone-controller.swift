@@ -328,11 +328,90 @@ struct HeadphoneControllerTests {
     }
 
     @MainActor
+    static func peqNotificationByteOrder() async {
+        let (manager, controller) = await ready()
+        func notify(_ command: UInt16, _ payload: [UInt8]) {
+            manager.notificationHandler?(GAIAProtocol.Response(vendorId: GAIAProtocol.vendorSennheiser,
+                commandId: command, payload: Data(payload)))
+        }
+        notify(GAIAProtocol.notifPreGain, [241, 255])
+        precondition(controller.preGainDB == -1.5, "A little-endian pre-gain notification displayed the wrong dB value")
+        notify(GAIAProtocol.notifPreGain, [15, 0])
+        precondition(controller.preGainDB == 1.5)
+        notify(GAIAProtocol.respPreGain, [255, 241])
+        precondition(controller.preGainDB == -1.5, "Pre-gain GET replies must remain big-endian")
+        notify(GAIAProtocol.notifStageFrequency, [0, 0, 100, 1, 1, 144, 2, 6, 64, 3, 25, 0, 4, 31, 64])
+        notify(GAIAProtocol.notifStageQ, [0, 8, 0, 1, 12, 0, 2, 16, 0, 3, 20, 0, 4, 24, 0])
+        notify(GAIAProtocol.notifStageGain, [0, 255, 246, 1, 0, 10, 2, 255, 236, 3, 0, 20, 4, 255, 226])
+        precondition(controller.peqStages.map(\.frequency) == [100, 400, 1600, 6400, 8000])
+        precondition(controller.peqStages.map(\.q) == [0.5, 0.75, 1, 1.25, 1.5])
+        precondition(controller.peqStages.map(\.gain) == [-1, 1, -2, 2, -3])
+        print("PASS captured PEQ notifications decode pre-gain little-endian and all stage values big-endian")
+    }
+
+    @MainActor
+    static func eqInputRanges() async {
+        let (manager, controller) = await ready()
+        controller.setPreGain(-358.5)
+        precondition(controller.preGainDB == -6, "Pre-gain escaped the supported gain range")
+        controller.setEQBand(0, gain: -99)
+        controller.setEQBand(1, gain: 99)
+        controller.setPEQFrequency(1, hz: -1)
+        controller.setPEQFrequency(4, hz: 99_999)
+        controller.setPEQQ(2, q: 99)
+        controller.setPEQGain(3, db: 99)
+        precondition(controller.eqGains.prefix(2) == [-6, 6])
+        precondition(controller.peqStages[1].frequency == 20)
+        precondition(controller.peqStages[4].frequency == 20_000)
+        precondition(controller.peqStages[2].q == 10)
+        precondition(controller.peqStages[3].gain == 6)
+        controller.setPreGain(.nan)
+        controller.setEQBand(0, gain: .infinity)
+        controller.setPEQQ(2, q: -.infinity)
+        controller.setPEQGain(3, db: .nan)
+        try? await Task.sleep(nanoseconds: 200_000_000)
+        precondition(manager.writes(GAIAProtocol.cmdSetPreGain) == [[255, 196]])
+        precondition(Set(manager.writes(GAIAProtocol.cmdSetEQBand)) == Set([[0, 196], [1, 60]]))
+        precondition(Set(manager.writes(GAIAProtocol.cmdSetStageFrequency)) == Set([[1, 0, 20], [4, 78, 32]]))
+        precondition(manager.writes(GAIAProtocol.cmdSetStageQ) == [[2, 160, 0]])
+        precondition(manager.writes(GAIAProtocol.cmdSetStageGain) == [[3, 0, 60]])
+        print("PASS EQ/PEQ inputs stay in supported ranges and nonfinite edits send nothing")
+    }
+
+    @MainActor
+    static func presetCancelsBandEdits() async {
+        let (manager, controller) = await ready()
+        controller.setEQBand(4, gain: 6)
+        controller.lockEQ(preset: .rock)
+        await controller.sendEQBands(.rock)
+        try? await Task.sleep(nanoseconds: 200_000_000)
+        precondition(manager.writes(GAIAProtocol.cmdSetEQBand) == [[0, 0], [1, 20], [2, 25], [3, 15], [4, 236]],
+                     "A pending manual edit overwrote the selected preset")
+        precondition(controller.eqGains == [0, 2, 2.5, 1.5, -2] && controller.eqPreset == .rock)
+        print("PASS selecting a preset cancels pending manual band edits")
+    }
+
+    @MainActor
     static func main() async {
+        if CommandLine.arguments.contains("--peq-notifications") {
+            await peqNotificationByteOrder()
+            return
+        }
+        if CommandLine.arguments.contains("--eq-input-range") {
+            await eqInputRanges()
+            return
+        }
+        if CommandLine.arguments.contains("--eq-preset-race") {
+            await presetCancelsBandEdits()
+            return
+        }
         if CommandLine.arguments.contains("--malformed-count") {
             await malformedCount()
             return
         }
+        await peqNotificationByteOrder()
+        await eqInputRanges()
+        await presetCancelsBandEdits()
         await malformedCount()
         await missedConnectionNotifications()
         await lateRead()

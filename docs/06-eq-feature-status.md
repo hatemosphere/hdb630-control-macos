@@ -75,6 +75,8 @@ All 16-bit big-endian. Encoding confirmed from Blutter (`_Mapper` in `peq_varian
 SET: `[gain_hi, gain_lo]`, GET: response `[gain_hi, gain_lo]`
 16-bit signed big-endian, ÷10 for dB. Verified: SET `[0, 10]` → reads back `00 0A` (+1.0 dB).
 
+Firmware 3.33.3 sends pre-gain notification `0x1093` in **little-endian** order. A -2.0 dB write reads back `FF EC` but notifies `EC FF`. Stage frequency, Q, and gain notifications remain big-endian. See the [2026-10-15 hardware verification](11-eq-hardware-verification-2026-10-15.md).
+
 ### Device Headroom (0x1014)
 Read-only. Response: `00 1E` = 30 → 3.0 dB headroom.
 
@@ -136,5 +138,5 @@ NotificationHandler classes confirmed in Blutter output for all items marked "co
 | Stage Q | 0x108D | 1–5 concatenated `[stage, q_hi, q_lo]` entries | Live observed |
 | Stage Filter Type | 0x108F | 1–5 concatenated `[stage, type]` entries | Live observed |
 | Stage Gain | 0x1091 | 1–5 concatenated `[stage, gain_hi, gain_lo]` entries | Live observed |
-| Pre-Gain | 0x1093 | `[gain_hi, gain_lo]` | Live observed |
+| Pre-Gain | 0x1093 | `[gain_lo, gain_hi]`, signed little-endian | Live write/readback and notification verified |
 | Audio Mode | 0x0884 | `[0x00, mode_byte]` | Live observed (genericAudio feature) |

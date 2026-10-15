@@ -365,6 +365,7 @@ private struct PEQControls: View {
                 in: controller.eqConfig.minGainDB...controller.eqConfig.maxGainDB,
                 step: 0.5
             )
+            .accessibilityLabel("PEQ pre-gain")
 
             // Headroom
             HStack {
@@ -419,6 +420,7 @@ private struct PEQStageRow: View {
                 .pickerStyle(.menu)
                 .labelsHidden()
                 .frame(width: 90)
+                .accessibilityLabel("PEQ band \(stage + 1) filter")
             }
 
             if stageBinding.filterType != .bypass {
@@ -435,6 +437,7 @@ private struct PEQStageRow: View {
                         ),
                         range: 20...20000
                     )
+                    .accessibilityLabel("PEQ band \(stage + 1) frequency")
                     Text(formatFreq(stageBinding.frequency))
                         .font(.system(size: 9, design: .monospaced))
                         .foregroundStyle(.secondary)
@@ -454,6 +457,7 @@ private struct PEQStageRow: View {
                         ),
                         in: 0.1...10.0
                     )
+                    .accessibilityLabel("PEQ band \(stage + 1) Q")
                     Text(String(format: "%.2f", stageBinding.q))
                         .font(.system(size: 9, design: .monospaced))
                         .foregroundStyle(.secondary)
@@ -474,6 +478,7 @@ private struct PEQStageRow: View {
                         in: controller.eqConfig.minGainDB...controller.eqConfig.maxGainDB,
                         step: 0.5
                     )
+                    .accessibilityLabel("PEQ band \(stage + 1) gain")
                     Text(formatGain(stageBinding.gain))
                         .font(.system(size: 9, design: .monospaced))
                         .foregroundStyle(.secondary)
@@ -543,11 +548,12 @@ private struct EQBandSliders: View {
                         .frame(width: 36)
 
                     VerticalSlider(
+                        label: "\(Self.bandLabels[band]) Hz gain",
                         value: Binding(
                             get: { controller.eqGains[band] },
                             set: { controller.setEQBand(band, gain: $0) }
                         ),
-                        range: -6.0...6.0
+                        range: controller.eqConfig.minGainDB...controller.eqConfig.maxGainDB
                     )
                     .frame(height: 84)
 
@@ -567,6 +573,7 @@ private struct EQBandSliders: View {
 }
 
 private struct VerticalSlider: View {
+    let label: String
     @Binding var value: Double
     let range: ClosedRange<Double>
 
@@ -617,6 +624,9 @@ private struct VerticalSlider: View {
                         value = (raw * 2).rounded() / 2
                     }
             )
+        }
+        .accessibilityRepresentation {
+            Slider(value: $value, in: range, step: 0.5) { Text(label) }
         }
     }
 }
