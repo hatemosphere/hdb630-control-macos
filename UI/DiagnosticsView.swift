@@ -387,7 +387,7 @@ struct DiagnosticsView: View {
     private var supportedCodecs: String {
         guard dongle.available else { return "—" }
         let names = DongleController.Codec.allCases
-            .filter { $0 != .automatic && dongle.supportedCodecMask & $0.rawValue != 0 }
+            .filter { dongle.supportedCodecMask & $0.rawValue != 0 }
             .map(\.title)
         return names.isEmpty ? "None reported" : names.joined(separator: ", ")
     }

@@ -137,13 +137,13 @@ docs/                          -- Protocol docs and RE guide
 - Video / Music modes set both dongle transmission and Mac USB output to 48 / 96 kHz, with readback of the actual formats
 - Manual Mac USB sample-rate selection (44.1, 48, or 96 kHz when offered by the dongle)
 - Reconnect and disconnect controls
-- Codec choices when the connected headphones expose more than one option, with rejection errors shown if the dongle declines a request
+- Codec switching (e.g. aptX / aptX Adaptive) when the connected headphones expose more than one option
 
 ## Live validation
 
 On an HDB 630 and BTD 700 (firmware 3.11.0), the following controls were changed, read back from the device, and restored: ANC on/off; Anti-Wind Off/Max/Auto; the undocumented Comfort flag; Adaptive ANC; transparency; call and general settings; a graphic EQ band; each parametric EQ command type; crossfeed; dongle mode; and dongle disconnect/reconnect. This confirms protocol readback, not the audible effect of every setting. The Anti-Wind values are `0=Off`, `1=Max`, `2=Auto`. Crossfeed uses `0=Low`, `1=High`, `2=Off`.
 
-The app refreshes headset state after discrete writes and reports rejected commands. It also handles multi-stage PEQ notifications. The connected HDB 630 currently reports only aptX Adaptive as a dongle codec option, so codec switching across different headphones remains unverified. Firmware updates and Auracast broadcast configuration still use Sennheiser Dongle Control.
+The app refreshes headset state after discrete writes and reports rejected commands. It also handles multi-stage PEQ notifications. Firmware updates and Auracast broadcast configuration still use Sennheiser Dongle Control.
 
 ## Known Limitations
 
@@ -151,7 +151,7 @@ The app refreshes headset state after discrete writes and reports rejected comma
 - BTD 700 USB dongle works for audio but control still goes directly to headphones via separate BT connection
 - Multipoint is intentionally view-only, to not cut own connection
 - Custom EQ presets created in the mobile app show as "Custom" -- headphones only store raw band gains, preset names live in the phone app's local storage
-- The dongle reports SBC, aptX and aptX Adaptive in High Quality mode; Gaming mode reported only aptX Adaptive in our tests. Codec selection requests can be rejected by firmware; the app displays that error.
+- The dongle reports SBC, aptX and aptX Adaptive in High Quality mode; Gaming mode reported only aptX Adaptive in our tests. The dongle switches to one codec at a time; requests for the active codec or several codecs at once are rejected, so there is no automatic codec choice over USB.
 - Wireless 96 kHz requires High Resolution on the headphones. Signal Deck can now read and change it under Headphones → Settings → Wireless audio, verify the write, restart the headphones and reconnect. Gaming/Video mode still uses 48 kHz. Always check the actual link format in Signal Lab.
 - Packet traces use private macOS unified debug logging. The app no longer writes an unbounded `/tmp/hdb630.log` file.
 - Firmware updates and Auracast broadcast configuration remain in Sennheiser Dongle Control.

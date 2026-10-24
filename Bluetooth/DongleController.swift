@@ -22,7 +22,6 @@ final class DongleController: ObservableObject {
     }
 
     enum Codec: UInt16, CaseIterable, Identifiable {
-        case automatic = 0x003F
         case sbc = 0x0001
         case aptX = 0x0002
         case aptXAdaptive = 0x0004
@@ -33,7 +32,6 @@ final class DongleController: ObservableObject {
         var id: UInt16 { rawValue }
         var title: String {
             switch self {
-            case .automatic: "Automatic"
             case .sbc: "SBC"
             case .aptX: "aptX"
             case .aptXAdaptive: "aptX Adaptive"
@@ -140,7 +138,7 @@ final class DongleController: ObservableObject {
 
     var activeCodecDescription: String {
         guard connectionState >= 2, activeCodecMask != 0 else { return "None" }
-        return Codec.allCases.first(where: { $0 != .automatic && $0.rawValue == activeCodecMask })?.title
+        return Codec.allCases.first(where: { $0.rawValue == activeCodecMask })?.title
             ?? String(format: "0x%04X", activeCodecMask)
     }
 
@@ -451,7 +449,10 @@ final class DongleController: ObservableObject {
         }
     }
 
+    // Firmware 3.11.0 takes a single-codec mask and rejects (status 1) multi-codec masks and the
+    // codec already in use, so there is no "automatic" and re-selecting the active codec is a no-op.
     func setCodec(_ codec: Codec) async {
+        guard codec.rawValue != activeCodecMask else { return }
         beginOperation()
         defer { endOperation() }
         do {

@@ -19,7 +19,7 @@ Host commands use `[0x34, 0xFE, command, payload_length, payload..., zero_paddin
 | `0x06` | Connection state |
 | `0x01` / `0x02` | Get / set audio mode |
 | `0x03` | Codec capability mask reported by the dongle |
-| `0x04` | Request codec mask |
+| `0x04` | Switch codec: 2-byte little-endian mask with exactly one codec bit |
 | `0x05` | Active codec |
 | `0x08` | Active bit depth and sample rate |
 | `0x07` | LE Audio connection state |
@@ -30,7 +30,7 @@ Not used by the app, but documented by btd700ctl: `0x09`/`0x0A` broadcast info (
 
 Unsolicited events (`0xFC`) carry an event ID in byte 2: `0x02` audio mode, `0x03` supported codecs, `0x04` codec in use, `0x0F` connection state, `0x10` LE Audio state, `0x11` audio quality, `0x16` sink transport, `0x17` gaming availability. Each event payload has the same layout as the matching status reply (`0x02`->`0x01`, `0x03`->`0x03`, `0x04`->`0x05` codec mask, `0x0F`->`0x06`, `0x10`->`0x07`, `0x11`->`0x08`, `0x16`->`0x15`), captured on firmware 3.11.0 during a dongle disconnect/reconnect and a mode change. The app applies events directly. No codec event arrives when the link drops, so a state event also re-reads `0x05`. Unknown events trigger a full refresh. The audio-mode reply and event carry a third, undocumented byte (`01` so far).
 
-These identifiers were documented by [btd700ctl](https://github.com/sobalap/btd700ctl). The macOS implementation was tested directly against a plugged-in BTD 700 on firmware 3.11.0. It returned streaming state, Gaming mode, aptX Adaptive, and 24-bit/48-kHz audio. Changing the mode to High Quality and back returned success (`0x00`) and read back correctly. Codec requests returned status `0x01` and left aptX Adaptive active; the app reports that rejection.
+These identifiers were documented by [btd700ctl](https://github.com/sobalap/btd700ctl). The macOS implementation was tested directly against a plugged-in BTD 700 on firmware 3.11.0. It returned streaming state, Gaming mode, aptX Adaptive, and 24-bit/48-kHz audio. Changing the mode to High Quality and back returned success (`0x00`) and read back correctly. Codec switching works with a single-codec mask (`[02 00]` switched to aptX at 16-bit/48 kHz, `[04 00]` back to aptX Adaptive). Status `0x01` is returned for the codec already in use and for multi-codec masks such as `07` or `3F`, so btd700ctl's "all codecs" mask does not work as an automatic mode.
 
 The read-only `0x07` and `0x15` status commands returned `01` and `01` with the HDB 630 connected. In btd700ctl's enum mapping, these mean LE Audio disconnected and Classic Bluetooth sink transport. They describe the dongle-to-headphone link, not the Mac's separate direct control connection.
 
