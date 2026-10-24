@@ -44,7 +44,7 @@ These are the initial values captured at approximately 23:13 EDT. All numbers ar
 | `12` | 4 | 0 | Audio-time bucket; codec assignment unresolved. |
 | `13` | 4 | 3 | Audio-time bucket; codec assignment unresolved. |
 
-The [captured experiment data](statistics-observations.json) contains the raw values and independent state readbacks. Each experiment starts with a full snapshot, followed by changed statistic bytes.
+The [captured experiment data](https://github.com/steph4n-gh/signal-deck/blob/bafdb60/docs/statistics-observations.json) contains the raw values and independent state readbacks. Each experiment starts with a full snapshot, followed by changed statistic bytes.
 
 ## Controlled observations
 

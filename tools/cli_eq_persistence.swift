@@ -27,7 +27,7 @@ struct EQPersistenceCheck {
         let args = Array(CommandLine.arguments.dropFirst())
         let restart = args.first == "--restart"
         guard args.count == (restart ? 2 : 1), let path = args.last, !path.hasPrefix("--") else {
-            fputs("Usage: check-eq-persistence.sh [--restart] new-report.json\nQuit Signal Deck first. --restart reboots the headphones.\n", stderr)
+            fputs("Usage: check-eq-persistence.sh [--restart] new-report.json\nQuit HDB 630 Control first. --restart reboots the headphones.\n", stderr)
             exit(2)
         }
         let output = URL(fileURLWithPath: path)

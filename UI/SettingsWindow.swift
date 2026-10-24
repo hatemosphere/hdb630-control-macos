@@ -39,13 +39,13 @@ struct AppSettingsView: View {
                 .controlSize(.small)
 
                 Text(loginStatus == .enabled
-                     ? "Signal Deck will open when you sign in to your Mac."
+                     ? "HDB 630 Control will open when you sign in to your Mac."
                      : "Keep headphone and dongle controls ready in your menu bar.")
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
 
                 if loginStatus == .requiresApproval {
-                    Text("Allow Signal Deck in macOS Login Items to finish enabling automatic launch.")
+                    Text("Allow HDB 630 Control in macOS Login Items to finish enabling automatic launch.")
                         .font(.system(size: 11))
                         .foregroundStyle(.orange)
                 }
@@ -62,7 +62,7 @@ struct AppSettingsView: View {
             }
 
             HStack {
-                Text("Signal Deck · \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "Development")")
+                Text("HDB 630 Control · \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "Development")")
                     .font(.system(size: 10))
                     .foregroundStyle(.secondary)
                 Spacer()

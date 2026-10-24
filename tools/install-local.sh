@@ -8,7 +8,7 @@ built="$build_dir/Build/Products/Release/HDB630Control.app"
 build_log=$(mktemp)
 trap 'rm -f "$build_log"' EXIT
 
-echo "Building Signal Deck…"
+echo "Building HDB 630 Control…"
 if ! xcodebuild -quiet -project "$repo/HDB630Control.xcodeproj" -scheme HDB630Control \
   -configuration Release -destination 'platform=macOS' -derivedDataPath "$build_dir" \
   CODE_SIGNING_ALLOWED=NO build >"$build_log" 2>&1; then

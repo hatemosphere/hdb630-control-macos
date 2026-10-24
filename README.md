@@ -1,19 +1,15 @@
-# Signal Deck
+# HDB 630 macOS Controls
 
-A native macOS menu bar app for Sennheiser HDB 630 headphones and the BTD 700 dongle.
+Native macOS menu bar app to control Sennheiser HDB 630 headphones and the BTD 700 dongle.
 
-Maintained independently at [steph4n-gh/signal-deck](https://github.com/steph4n-gh/signal-deck), forked from [hatemosphere/hdb630-control-macos](https://github.com/hatemosphere/hdb630-control-macos).
+**Control + Option + S** (`⌃⌥S`) switches media output between the MacBook speakers and the USB BTD 700 from any app; a brief on-screen message confirms the selected output. If the dongle is unplugged, the shortcut selects the speakers. Microphone selection, per-device volume, and the system-alert output are preserved.
 
-This personal branch adds **Control + Option + S** (`⌃⌥S`) to switch media output between the MacBook speakers and the USB BTD 700 from any app. A brief on-screen message confirms the selected output. If the dongle is unplugged, the shortcut selects the speakers. The app-settings gear also provides a switch button and shows the current output. The shortcut is active while Signal Deck is running; enable Launch at login to have it ready after signing in. Microphone selection, per-device volume, and the separate system-alert output are preserved. Development lives on `personal/audio-output-hotkey`; this fork is maintained separately from upstream.
+Click the chart icon beside the Headphones and BTD 700 tabs to open **Signal Lab**. It shows the Mac-to-dongle USB audio format and timing, the dongle's Bluetooth codec, link format and transport, headphone wear state, and an RSSI history for the Mac-to-headphone control connection. See [the telemetry map](docs/07-signal-lab.md). Signal Lab also decodes the headphone streaming statistics and experimentally mapped usage counters ([investigation](docs/08-statistics.md)); telemetry stays on your Mac.
 
-Click the chart icon beside the Headphones and BTD 700 tabs to open **Signal Lab**. It shows the Mac-to-dongle USB audio format and timing, the dongle's Bluetooth codec, link format and transport, headphone wear state, and an RSSI history for the separate Mac-to-headphone control connection. See [the telemetry map](docs/07-signal-lab.md) for what each reading means and which raw sensors are unavailable.
-
-**Headphones → Settings → Wireless audio** controls High Resolution directly from the Mac. Applying it restarts the headphones and restores the control connection. Music can then negotiate 24-bit/96 kHz; Video continues to use 48 kHz. [Protocol and validation](docs/09-wireless-resolution.md).
-
-Signal Lab also decodes the headphone streaming statistics (primary RSSI, normalized link quality, codec, lossless flag and bitrate when reported), and shows experimentally mapped usage counters. All 19 vendor records are available as raw values. The [24-statistic investigation](docs/08-statistics.md) records the evidence and unresolved IDs; telemetry stays on your Mac.
+**Headphones -> Settings -> Wireless audio** controls High Resolution directly from the Mac. Applying it restarts the headphones and restores the control connection. Music can then negotiate 24-bit/96 kHz; Video continues to use 48 kHz. [Protocol and validation](docs/09-wireless-resolution.md).
 
 <p>
-  <img src="screenshots/screenshot_personal_audio_switch.jpg" width="360" alt="Personal audio output switch and Control Option S shortcut">
+  <img src="screenshots/screenshot_personal_audio_switch.jpg" width="360" alt="Audio output switch and Control Option S shortcut">
   <img src="screenshots/screenshot_popover.png" width="260" alt="Headphone controls">
   <img src="screenshots/screenshot_dongle.png" width="260" alt="BTD 700 controls">
   <img src="screenshots/screenshot_popover_peq.png" width="260" alt="Parametric EQ controls">
@@ -77,12 +73,14 @@ The checks compile production parsing, request-session, controller, and audio-ob
 
 ```
 App/
-  AppDelegate.swift          -- Menu bar item, popover, polling
+  AppDelegate.swift          -- Menu bar item, popover, polling, reconnect
+  AudioOutputSwitcher.swift  -- Ctrl-Opt-S output switch, BTD 700 USB sample rate
   HDB630ControlApp.swift     -- SwiftUI app entry point
 Bluetooth/
   Models.swift               -- Shared model types (ANCState, EQPreset, etc.)
   GAIAProtocol.swift         -- GAIA v3 packet builder/parser
-  BluetoothManager.swift     -- SDP lookup, RFCOMM I/O
+  BluetoothManager.swift     -- SDP lookup, RFCOMM connection lifecycle
+  GAIACommandSession.swift   -- GAIA framing, per-command FIFO, timeouts
   HeadphoneController.swift  -- Device state + all get/set commands
   DongleController.swift     -- BTD 700 USB HID control and status
 UI/
@@ -96,6 +94,10 @@ tools/
   MockController.swift         -- Mock stubs for screenshot generation
   main.swift                   -- Headless screenshot renderer
   cli_probe_commands.swift     -- CLI probe script used during RE
+  test.sh, test-*.swift        -- Offline regression checks
+  install-local.sh             -- Build, sign, install to ~/Applications
+  check-eq-persistence.sh      -- EQ persistence check across headphone reboots
+  cli_statistics.swift         -- Dump GAIA statistics
 
 docs/                          -- Protocol docs and RE guide
 ```
@@ -152,8 +154,8 @@ The app refreshes headset state after discrete writes and reports rejected comma
 - Multipoint is intentionally view-only, to not cut own connection
 - Custom EQ presets created in the mobile app show as "Custom" -- headphones only store raw band gains, preset names live in the phone app's local storage
 - The dongle reports SBC, aptX and aptX Adaptive in High Quality mode; Gaming mode reported only aptX Adaptive in our tests. Codec selection requests can be rejected by firmware; the app displays that error.
-- Wireless 96 kHz requires High Resolution on the headphones. Signal Deck can now read and change it under Headphones → Settings → Wireless audio, verify the write, restart the headphones and reconnect. Gaming/Video mode still uses 48 kHz. Always check the actual link format in Signal Lab.
-- Packet traces use private macOS unified debug logging. The app no longer writes an unbounded `/tmp/hdb630.log` file.
+- Wireless 96 kHz requires High Resolution on the headphones. The app can read and change it under Headphones → Settings → Wireless audio, verify the write, restart the headphones and reconnect. Gaming/Video mode still uses 48 kHz. Always check the actual link format in Signal Lab.
+- Packet traces use private macOS unified debug logging.
 - Firmware updates and Auracast broadcast configuration remain in Sennheiser Dongle Control.
 
 ## BTD 700 Dongle & Multipoint
@@ -171,4 +173,4 @@ HDB 630 supports up to 2 simultaneous connections and 3 paired devices. Without 
 
 MIT
 
-The headphone controller and UI started from [hatemosphere/hdb630-control-macos](https://github.com/hatemosphere/hdb630-control-macos). BTD 700 HID command identifiers and report layout were informed by [sobalap/btd700ctl](https://github.com/sobalap/btd700ctl).
+BTD 700 controls, Signal Lab, and the transport rework were contributed by [steph4n-gh](https://github.com/steph4n-gh/signal-deck). BTD 700 HID command identifiers and report layout were informed by [sobalap/btd700ctl](https://github.com/sobalap/btd700ctl).

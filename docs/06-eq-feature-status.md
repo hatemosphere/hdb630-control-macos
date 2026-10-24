@@ -75,7 +75,7 @@ All 16-bit big-endian. Encoding confirmed from Blutter (`_Mapper` in `peq_varian
 SET: `[gain_hi, gain_lo]`, GET: response `[gain_hi, gain_lo]`
 16-bit signed big-endian, ÷10 for dB. Verified: SET `[0, 10]` → reads back `00 0A` (+1.0 dB).
 
-Firmware 3.33.3 sends pre-gain notification `0x1093` in **little-endian** order. A -2.0 dB write reads back `FF EC` but notifies `EC FF`. Stage frequency, Q, and gain notifications remain big-endian. See the [2026-10-15 hardware verification](11-eq-hardware-verification-2026-10-15.md).
+Firmware 3.33.3 sends pre-gain notification `0x1093` in **little-endian** order. A -2.0 dB write reads back `FF EC` but notifies `EC FF`. Stage frequency, Q, and gain notifications remain big-endian. Verified on hardware 2026-10-15 ([report](https://github.com/steph4n-gh/signal-deck/blob/bafdb60/docs/11-eq-hardware-verification-2026-10-15.md)).
 
 ### Device Headroom (0x1014)
 Read-only. Response: `00 1E` = 30 → 3.0 dB headroom.
