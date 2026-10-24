@@ -2,7 +2,7 @@ name: HDB630Control
 options:
   deploymentTarget:
     macOS: "14.0"
-  xcodeVersion: "16.0"
+  xcodeVersion: "27.1"
   bundleIdPrefix: com.hdb630
 
 targets:

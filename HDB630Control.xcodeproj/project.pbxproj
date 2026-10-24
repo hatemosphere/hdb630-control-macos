@@ -7,52 +7,52 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		A0D100000000000000000001 /* AudioOutputSwitcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0D100000000000000000003 /* AudioOutputSwitcher.swift */; };
-		A0D100000000000000000002 /* AudioOutputSwitcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0D100000000000000000003 /* AudioOutputSwitcher.swift */; };
 		0601C75202787321FA71540D /* IOBluetooth.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2812FD6395C926D15DB7CBFE /* IOBluetooth.framework */; };
-		0D0D0D0D0D0D0D0D0D0D0001 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0D0D0D0D0D0D0D0D0D0D0002 /* IOKit.framework */; };
-		0D0D0D0D0D0D0D0D0D0D0003 /* DongleController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D0D0D0D0D0D0D0D0D0D0004 /* DongleController.swift */; };
-		0D0D0D0D0D0D0D0D0D0D0005 /* DongleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D0D0D0D0D0D0D0D0D0D0006 /* DongleView.swift */; };
-		D1A600000000000000000001 /* DiagnosticsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A600000000000000000002 /* DiagnosticsView.swift */; };
 		1589C9582B59B1A926F54A61 /* MockController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A853BB9A82A0A00976F157DB /* MockController.swift */; };
+		2A5784333278420C927617DB /* AudioOutputSwitcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 561F5C1E3E287ADAF62B1118 /* AudioOutputSwitcher.swift */; };
 		3B3859AD1F0BF67F85CBF94A /* StatusBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C800B4A314F01AFF9A603E3F /* StatusBarView.swift */; };
 		48F185C410924AAC23D94044 /* GAIAProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B15D54638B3358EF6E43CA9 /* GAIAProtocol.swift */; };
-		6A1A20261015000000000001 /* GAIACommandSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A1A20261015000000000002 /* GAIACommandSession.swift */; };
 		4C89EB2F9F389E69E5F7EA4D /* StatusBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C800B4A314F01AFF9A603E3F /* StatusBarView.swift */; };
+		4FC298C6C78CA141936D706C /* DongleController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0C0E2DEEFDD5CDABF8BE7C8 /* DongleController.swift */; };
+		63D62D9B6265F0D745D193B9 /* GAIACommandSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA7FDACCCDE1E0582BD6AA3A /* GAIACommandSession.swift */; };
 		6FF0A96E23F3BD8B40F77C49 /* SettingsWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43CAF6C6DD4D4C6194BA4BC6 /* SettingsWindow.swift */; };
 		7E2AD4CD87F3384DC06639C5 /* Components.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81A96847BF00FEE10A1A2E4C /* Components.swift */; };
 		802E20CB841C6B52FF041864 /* BluetoothManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = E170740EEF5E035DBF9E758D /* BluetoothManager.swift */; };
 		9095069AAAF75001F34F8BD5 /* HeadphoneController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D43BB7830237A2173F8A61D6 /* HeadphoneController.swift */; };
 		9270F13B96675277C224E7D8 /* Components.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81A96847BF00FEE10A1A2E4C /* Components.swift */; };
+		958BC1F52445974EEDF410CA /* DiagnosticsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4D0C6E5862788AB53137CFC /* DiagnosticsView.swift */; };
 		9F23367AA312B3F5DF31A090 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 290E2F394655B8CEED0D2BEF /* Models.swift */; };
+		A04F83709C296B54424793A5 /* DongleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6A5A4A3EDD27E9D44BB96D7 /* DongleView.swift */; };
 		B20EA258B680EDE4BE606947 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 290E2F394655B8CEED0D2BEF /* Models.swift */; };
 		B55869F64FD1D11AD32EE0F5 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C680DA5A0061A163F7F344C /* main.swift */; };
 		C43319859A151F5D54B80910 /* SettingsWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43CAF6C6DD4D4C6194BA4BC6 /* SettingsWindow.swift */; };
 		C94E0F86BD91C15FA26C8FC5 /* IOBluetooth.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2812FD6395C926D15DB7CBFE /* IOBluetooth.framework */; };
+		CA92BC1EAFB21A549AC1E4D0 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C076C73E466CFA4ADC2FA5AA /* IOKit.framework */; };
 		CEC52D738381EABEFFBD18A4 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF9F40CCE91F32109F3B1CEE /* AppDelegate.swift */; };
+		F7175FC9071571AEF7A3BC93 /* AudioOutputSwitcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 561F5C1E3E287ADAF62B1118 /* AudioOutputSwitcher.swift */; };
 		F96CDC8833066AC884F56D7B /* HDB630ControlApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6288554D29F37F54ABAD731C /* HDB630ControlApp.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		A0D100000000000000000003 /* AudioOutputSwitcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioOutputSwitcher.swift; sourceTree = "<group>"; };
 		2812FD6395C926D15DB7CBFE /* IOBluetooth.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOBluetooth.framework; path = System/Library/Frameworks/IOBluetooth.framework; sourceTree = SDKROOT; };
-		0D0D0D0D0D0D0D0D0D0D0002 /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = System/Library/Frameworks/IOKit.framework; sourceTree = SDKROOT; };
-		0D0D0D0D0D0D0D0D0D0D0004 /* DongleController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DongleController.swift; sourceTree = "<group>"; };
-		0D0D0D0D0D0D0D0D0D0D0006 /* DongleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DongleView.swift; sourceTree = "<group>"; };
-		D1A600000000000000000002 /* DiagnosticsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiagnosticsView.swift; sourceTree = "<group>"; };
 		290E2F394655B8CEED0D2BEF /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
 		43CAF6C6DD4D4C6194BA4BC6 /* SettingsWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsWindow.swift; sourceTree = "<group>"; };
+		561F5C1E3E287ADAF62B1118 /* AudioOutputSwitcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioOutputSwitcher.swift; sourceTree = "<group>"; };
 		6288554D29F37F54ABAD731C /* HDB630ControlApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HDB630ControlApp.swift; sourceTree = "<group>"; };
 		7B7F509AB863CD1D3DBBC463 /* ScreenshotMock */ = {isa = PBXFileReference; includeInIndex = 0; path = ScreenshotMock; sourceTree = BUILT_PRODUCTS_DIR; };
 		81A96847BF00FEE10A1A2E4C /* Components.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Components.swift; sourceTree = "<group>"; };
 		8B15D54638B3358EF6E43CA9 /* GAIAProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GAIAProtocol.swift; sourceTree = "<group>"; };
-		6A1A20261015000000000002 /* GAIACommandSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GAIACommandSession.swift; sourceTree = "<group>"; };
 		9C680DA5A0061A163F7F344C /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
 		A853BB9A82A0A00976F157DB /* MockController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockController.swift; sourceTree = "<group>"; };
+		B0C0E2DEEFDD5CDABF8BE7C8 /* DongleController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DongleController.swift; sourceTree = "<group>"; };
+		B4D0C6E5862788AB53137CFC /* DiagnosticsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiagnosticsView.swift; sourceTree = "<group>"; };
+		C076C73E466CFA4ADC2FA5AA /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = System/Library/Frameworks/IOKit.framework; sourceTree = SDKROOT; };
 		C800B4A314F01AFF9A603E3F /* StatusBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusBarView.swift; sourceTree = "<group>"; };
 		D43BB7830237A2173F8A61D6 /* HeadphoneController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeadphoneController.swift; sourceTree = "<group>"; };
 		DF9F40CCE91F32109F3B1CEE /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		E170740EEF5E035DBF9E758D /* BluetoothManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BluetoothManager.swift; sourceTree = "<group>"; };
+		E6A5A4A3EDD27E9D44BB96D7 /* DongleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DongleView.swift; sourceTree = "<group>"; };
+		EA7FDACCCDE1E0582BD6AA3A /* GAIACommandSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GAIACommandSession.swift; sourceTree = "<group>"; };
 		FBE8260D7255BEA6E4BDEA35 /* HDB630Control.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = HDB630Control.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -62,7 +62,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				C94E0F86BD91C15FA26C8FC5 /* IOBluetooth.framework in Frameworks */,
-				0D0D0D0D0D0D0D0D0D0D0001 /* IOKit.framework in Frameworks */,
+				CA92BC1EAFB21A549AC1E4D0 /* IOKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -83,7 +83,6 @@
 				9C680DA5A0061A163F7F344C /* main.swift */,
 				A853BB9A82A0A00976F157DB /* MockController.swift */,
 			);
-			name = tools;
 			path = tools;
 			sourceTree = "<group>";
 		};
@@ -91,7 +90,7 @@
 			isa = PBXGroup;
 			children = (
 				2812FD6395C926D15DB7CBFE /* IOBluetooth.framework */,
-				0D0D0D0D0D0D0D0D0D0D0002 /* IOKit.framework */,
+				C076C73E466CFA4ADC2FA5AA /* IOKit.framework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -112,7 +111,7 @@
 			isa = PBXGroup;
 			children = (
 				DF9F40CCE91F32109F3B1CEE /* AppDelegate.swift */,
-				A0D100000000000000000003 /* AudioOutputSwitcher.swift */,
+				561F5C1E3E287ADAF62B1118 /* AudioOutputSwitcher.swift */,
 				6288554D29F37F54ABAD731C /* HDB630ControlApp.swift */,
 			);
 			path = App;
@@ -122,9 +121,9 @@
 			isa = PBXGroup;
 			children = (
 				E170740EEF5E035DBF9E758D /* BluetoothManager.swift */,
-				0D0D0D0D0D0D0D0D0D0D0004 /* DongleController.swift */,
+				B0C0E2DEEFDD5CDABF8BE7C8 /* DongleController.swift */,
+				EA7FDACCCDE1E0582BD6AA3A /* GAIACommandSession.swift */,
 				8B15D54638B3358EF6E43CA9 /* GAIAProtocol.swift */,
-				6A1A20261015000000000002 /* GAIACommandSession.swift */,
 				D43BB7830237A2173F8A61D6 /* HeadphoneController.swift */,
 				290E2F394655B8CEED0D2BEF /* Models.swift */,
 			);
@@ -144,8 +143,8 @@
 			isa = PBXGroup;
 			children = (
 				81A96847BF00FEE10A1A2E4C /* Components.swift */,
-				D1A600000000000000000002 /* DiagnosticsView.swift */,
-				0D0D0D0D0D0D0D0D0D0D0006 /* DongleView.swift */,
+				B4D0C6E5862788AB53137CFC /* DiagnosticsView.swift */,
+				E6A5A4A3EDD27E9D44BB96D7 /* DongleView.swift */,
 				43CAF6C6DD4D4C6194BA4BC6 /* SettingsWindow.swift */,
 				C800B4A314F01AFF9A603E3F /* StatusBarView.swift */,
 			);
@@ -198,10 +197,11 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
-				LastUpgradeCheck = 1600;
+				LastUpgradeCheck = 2710;
+				TargetAttributes = {
+				};
 			};
 			buildConfigurationList = C648D11225C009A1F2D64EB5 /* Build configuration list for PBXProject "HDB630Control" */;
-			compatibilityVersion = "Xcode 14.0";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -211,6 +211,7 @@
 			mainGroup = 8ED48A4C0CEB7FB4BA8BC12E;
 			minimizedProjectReferenceProxies = 1;
 			preferredProjectObjectVersion = 77;
+			productRefGroup = B165E58F849DBD9BD5861E20 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
@@ -225,8 +226,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F7175FC9071571AEF7A3BC93 /* AudioOutputSwitcher.swift in Sources */,
 				9270F13B96675277C224E7D8 /* Components.swift in Sources */,
-				A0D100000000000000000002 /* AudioOutputSwitcher.swift in Sources */,
 				1589C9582B59B1A926F54A61 /* MockController.swift in Sources */,
 				B20EA258B680EDE4BE606947 /* Models.swift in Sources */,
 				6FF0A96E23F3BD8B40F77C49 /* SettingsWindow.swift in Sources */,
@@ -240,14 +241,14 @@
 			buildActionMask = 2147483647;
 			files = (
 				CEC52D738381EABEFFBD18A4 /* AppDelegate.swift in Sources */,
-				A0D100000000000000000001 /* AudioOutputSwitcher.swift in Sources */,
+				2A5784333278420C927617DB /* AudioOutputSwitcher.swift in Sources */,
 				802E20CB841C6B52FF041864 /* BluetoothManager.swift in Sources */,
-				0D0D0D0D0D0D0D0D0D0D0003 /* DongleController.swift in Sources */,
-				0D0D0D0D0D0D0D0D0D0D0005 /* DongleView.swift in Sources */,
-				D1A600000000000000000001 /* DiagnosticsView.swift in Sources */,
 				7E2AD4CD87F3384DC06639C5 /* Components.swift in Sources */,
+				958BC1F52445974EEDF410CA /* DiagnosticsView.swift in Sources */,
+				4FC298C6C78CA141936D706C /* DongleController.swift in Sources */,
+				A04F83709C296B54424793A5 /* DongleView.swift in Sources */,
+				63D62D9B6265F0D745D193B9 /* GAIACommandSession.swift in Sources */,
 				48F185C410924AAC23D94044 /* GAIAProtocol.swift in Sources */,
-				6A1A20261015000000000001 /* GAIACommandSession.swift in Sources */,
 				F96CDC8833066AC884F56D7B /* HDB630ControlApp.swift in Sources */,
 				9095069AAAF75001F34F8BD5 /* HeadphoneController.swift in Sources */,
 				9F23367AA312B3F5DF31A090 /* Models.swift in Sources */,
