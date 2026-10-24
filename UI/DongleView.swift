@@ -119,18 +119,16 @@ struct DongleView: View {
 
                     if availableCodecs.count > 1 {
                         HStack {
-                            Text("Preferred codec")
+                            Text("Codec")
                                 .font(.system(size: 11))
                                 .foregroundStyle(.secondary)
                             Spacer()
-                            Menu("Choose") {
-                                Button("Automatic") {
-                                    Task { await dongle.setCodec(.automatic) }
-                                }
+                            Menu(dongle.activeCodecDescription) {
                                 ForEach(availableCodecs) { codec in
-                                    Button(codec.title) {
-                                        Task { await dongle.setCodec(codec) }
-                                    }
+                                    Toggle(codec.title, isOn: Binding(
+                                        get: { dongle.activeCodecMask == codec.rawValue },
+                                        set: { _ in Task { await dongle.setCodec(codec) } }
+                                    ))
                                 }
                             }
                             .disabled(dongle.busy)
@@ -243,7 +241,7 @@ struct DongleView: View {
 
     private var availableCodecs: [DongleController.Codec] {
         DongleController.Codec.allCases.filter {
-            $0 != .automatic && dongle.supportedCodecMask & $0.rawValue != 0
+            dongle.supportedCodecMask & $0.rawValue != 0
         }
     }
 }

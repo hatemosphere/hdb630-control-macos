@@ -33,7 +33,7 @@ Native macOS menu bar app for Sennheiser HDB 630 headphones and the BTD 700 USB 
 - Connection state, firmware, active codec, link bit depth / sample rate
 - Music / Video modes: set both the dongle mode and the Mac USB output rate (96 / 48 kHz), then read both back
 - Manual Mac USB sample rate (44.1 / 48 / 96 kHz when offered)
-- Disconnect / reconnect headphones, preferred codec when more than one is offered
+- Disconnect / reconnect headphones; switch codec (e.g. aptX / aptX Adaptive) when the headphones offer more than one
 - USB hotplug detection and recovery after sleep
 
 **App**
@@ -140,7 +140,7 @@ docs/                        -- Protocol notes and RE write-ups
 - Crossfeed, sidetone, auto-pause, on-head detection, smart pause, auto-answer, comfort call, and auto power off don't send push notifications, so they're polled every 2 seconds while the popover is open
 - Multipoint is view-only, so the app can't cut its own connection
 - Custom EQ presets from the mobile app show as "Custom". The headphones store only band gains; preset names live in the phone app.
-- In High Quality mode the dongle reports SBC, aptX, and aptX Adaptive; Gaming mode reported only aptX Adaptive. Firmware can reject codec requests; the app shows the error.
+- In High Quality mode the dongle reports SBC, aptX, and aptX Adaptive; Gaming mode reported only aptX Adaptive. The dongle switches to one codec at a time; there is no automatic codec choice over USB.
 - 96 kHz wireless needs High Resolution enabled on the headphones and Music mode. Video always uses 48 kHz. Check the actual link format in the BTD 700 tab or Signal Lab.
 - Firmware updates and Auracast broadcast setup still need Sennheiser's apps
 - Settings were verified by write + readback on HDB 630 firmware 3.33.3 and BTD 700 firmware 3.11.0. That confirms the protocol, not the audible effect of every setting.

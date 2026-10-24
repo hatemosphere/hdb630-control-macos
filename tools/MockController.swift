@@ -108,7 +108,6 @@ final class DongleController: ObservableObject {
     }
 
     enum Codec: UInt16, CaseIterable, Identifiable {
-        case automatic = 0x003F
         case sbc = 0x0001
         case aptX = 0x0002
         case aptXAdaptive = 0x0004
@@ -116,7 +115,6 @@ final class DongleController: ObservableObject {
         var id: UInt16 { rawValue }
         var title: String {
             switch self {
-            case .automatic: "Automatic"
             case .sbc: "SBC"
             case .aptX: "aptX"
             case .aptXAdaptive: "aptX Adaptive"
@@ -131,6 +129,7 @@ final class DongleController: ObservableObject {
     @Published var connectionState: UInt8 = 3
     @Published var audioMode: AudioMode = .highQuality
     @Published var supportedCodecMask: UInt16 = 0x0007
+    @Published var activeCodecMask: UInt16 = 0x0004
     @Published var sampleRate: UInt8 = 3
     let connectionDescription = "Streaming audio"
     let activeCodecDescription = "aptX Adaptive"
