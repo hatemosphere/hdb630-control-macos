@@ -92,7 +92,9 @@ final class DongleController: ObservableObject {
             let quality = try await read(0x08, minimum: 2)
             let leAudioState = try await optionalState(0x07, maximum: 4)
             let sinkTransport = try await optionalState(0x15, maximum: 3)
-            return Self(firmware: "\(version[0]).\(version[1]).\(version[2])",
+            // Build number is little-endian 16-bit when the dongle sends the second byte (btd700ctl).
+            let build = UInt16(version[2]) | (version.count > 3 ? UInt16(version[3]) << 8 : 0)
+            return Self(firmware: "\(version[0]).\(version[1]).\(build)",
                         connectionState: state[0], audioMode: audioMode, transport: mode[1],
                         supportedCodecMask: mask(selected), activeCodecMask: mask(active),
                         bitDepth: quality[0], sampleRate: quality[1],
