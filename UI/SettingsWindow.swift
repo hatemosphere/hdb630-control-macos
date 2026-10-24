@@ -255,7 +255,8 @@ struct SettingsView: View {
                         Text("High").tag(1)
                     }
                     .pickerStyle(.segmented)
-                    .frame(width: 140)
+                    .labelsHidden()
+                    .fixedSize()
                 }
             }
 
