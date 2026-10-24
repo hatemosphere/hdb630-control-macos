@@ -39,6 +39,11 @@ import Foundation
             }
         }
 
+        let wideBuild = try await DongleController.StatusSnapshot.read { id in
+            id == 0x12 ? [3, 12, 0x2C, 0x01] : replies[id]!
+        }
+        precondition(wideBuild.firmware == "3.12.300", "Firmware build is a little-endian 16-bit value")
+
         for rawMode in [UInt8(3), 255] {
             requests = []
             do {
