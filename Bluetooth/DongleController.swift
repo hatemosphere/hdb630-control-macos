@@ -178,6 +178,7 @@ final class DongleController: ObservableObject {
     private let reportBuffer = UnsafeMutablePointer<UInt8>.allocate(capacity: 64)
     private var pending: Pending?
     private var eventRefreshTask: Task<Void, Never>?
+    private var pendingEvents = Set<UInt8>()
 
     init() {
         reportBuffer.initialize(repeating: 0, count: 64)
@@ -258,6 +259,7 @@ final class DongleController: ObservableObject {
         deviceGeneration = UUID()
         eventRefreshTask?.cancel()
         eventRefreshTask = nil
+        pendingEvents.removeAll()
         if let pending {
             self.pending = nil
             pending.continuation.resume(throwing: DongleError.unavailable)
@@ -295,11 +297,15 @@ final class DongleController: ObservableObject {
     private func receive(_ bytes: [UInt8]) {
         guard bytes.count >= 4, bytes[0] == 0x34 else { return }
         if bytes[1] == 0xFC {
+            pendingEvents.insert(bytes[2])
             eventRefreshTask?.cancel()
             eventRefreshTask = Task { [weak self] in
                 try? await Task.sleep(nanoseconds: 250_000_000)
-                guard !Task.isCancelled else { return }
-                _ = await self?.refresh()
+                guard !Task.isCancelled, let self else { return }
+                let events = self.pendingEvents
+                self.pendingEvents.removeAll()
+                // Not tied to the debounce task, so a later event cannot cancel reads already taken.
+                Task { await self.applyEvents(events) }
             }
             return
         }
@@ -350,6 +356,54 @@ final class DongleController: ObservableObject {
         try Task.checkCancellation()
         guard available, deviceGeneration == generation else { throw DongleError.unavailable }
         return response
+    }
+
+    // Event payload layouts are only confirmed for connection state (btd700ctl), so re-read just the
+    // field each event names. Connection changes touch most fields and get a full refresh.
+    private func applyEvents(_ events: Set<UInt8>) async {
+        let reads: [UInt8: UInt8] = [0x02: 0x01, 0x03: 0x03, 0x04: 0x05, 0x10: 0x07, 0x11: 0x08, 0x16: 0x15]
+        let relevant = events.subtracting([0x17]) // gaming availability is not shown
+        guard !relevant.isEmpty else { return }
+        guard relevant.allSatisfy({ reads[$0] != nil }) else {
+            _ = await refresh()
+            return
+        }
+        let generation = deviceGeneration
+        for id in Set(relevant.compactMap { reads[$0] }).sorted() {
+            do {
+                let bytes = try await command(id)
+                guard available, deviceGeneration == generation else { return }
+                try applyStatus(id, bytes)
+            } catch is CancellationError {
+                return
+            } catch {
+                _ = await refresh()
+                return
+            }
+        }
+    }
+
+    private func applyStatus(_ id: UInt8, _ bytes: [UInt8]) throws {
+        func mask() throws -> UInt16 {
+            guard let first = bytes.first else { throw DongleError.malformedResponse }
+            return UInt16(first) | (bytes.count > 1 ? UInt16(bytes[1]) << 8 : 0)
+        }
+        switch id {
+        case 0x01:
+            guard bytes.count >= 2 else { throw DongleError.malformedResponse }
+            guard let mode = AudioMode(rawValue: bytes[0]) else { throw DongleError.unsupportedAudioMode(bytes[0]) }
+            audioMode = mode
+            transport = bytes[1]
+        case 0x03: supportedCodecMask = try mask()
+        case 0x05: activeCodecMask = try mask()
+        case 0x07: leAudioState = bytes.first.flatMap { $0 <= 4 ? $0 : nil }
+        case 0x08:
+            guard bytes.count >= 2 else { throw DongleError.malformedResponse }
+            bitDepth = bytes[0]
+            sampleRate = bytes[1]
+        case 0x15: sinkTransport = bytes.first.flatMap { $0 <= 3 ? $0 : nil }
+        default: break
+        }
     }
 
     @discardableResult func refresh() async -> Bool {

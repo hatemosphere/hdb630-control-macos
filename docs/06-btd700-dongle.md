@@ -28,7 +28,7 @@ Host commands use `[0x34, 0xFE, command, payload_length, payload..., zero_paddin
 
 Not used by the app, but documented by btd700ctl: `0x09`/`0x0A` broadcast info (state, quality, encryption), `0x0B`/`0x0C` broadcast key, `0x0D`/`0x0E` broadcast name, `0x13` factory reset, `0x17` gaming availability (errors on the tested firmware per btd700ctl).
 
-Unsolicited events (`0xFC`) carry an event ID in byte 2: `0x02` audio mode, `0x03` supported codecs, `0x04` codec in use, `0x0F` connection state, `0x10` LE Audio state, `0x11` audio quality, `0x16` sink transport, `0x17` gaming availability. The app re-reads full status on any event.
+Unsolicited events (`0xFC`) carry an event ID in byte 2: `0x02` audio mode, `0x03` supported codecs, `0x04` codec in use, `0x0F` connection state, `0x10` LE Audio state, `0x11` audio quality, `0x16` sink transport, `0x17` gaming availability. Only the connection-state payload (`data[0]`) is confirmed by btd700ctl, so the app re-reads just the field an event names (e.g. `0x11` -> `0x08`) and does a full refresh on connection-state or unknown events.
 
 These identifiers were documented by [btd700ctl](https://github.com/sobalap/btd700ctl). The macOS implementation was tested directly against a plugged-in BTD 700 on firmware 3.11.0. It returned streaming state, Gaming mode, aptX Adaptive, and 24-bit/48-kHz audio. Changing the mode to High Quality and back returned success (`0x00`) and read back correctly. Codec requests returned status `0x01` and left aptX Adaptive active; the app reports that rejection.
 
