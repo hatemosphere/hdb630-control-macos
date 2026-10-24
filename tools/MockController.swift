@@ -94,3 +94,65 @@ final class HeadphoneController: ObservableObject {
     func setAutoCall(_ on: Bool) async {}
     func setAutoPowerOff(minutes: Int) async {}
 }
+
+// MARK: - Mock DongleController
+
+@MainActor
+final class DongleController: ObservableObject {
+    enum AudioMode: UInt8, CaseIterable {
+        case highQuality = 0
+        case gaming = 1
+        case broadcast = 2
+
+        var title: String { self == .gaming ? "Gaming / Low Latency" : "High Quality" }
+    }
+
+    enum Codec: UInt16, CaseIterable, Identifiable {
+        case automatic = 0x003F
+        case sbc = 0x0001
+        case aptX = 0x0002
+        case aptXAdaptive = 0x0004
+
+        var id: UInt16 { rawValue }
+        var title: String {
+            switch self {
+            case .automatic: "Automatic"
+            case .sbc: "SBC"
+            case .aptX: "aptX"
+            case .aptXAdaptive: "aptX Adaptive"
+            }
+        }
+    }
+
+    @Published var available = true
+    @Published var busy = false
+    @Published var errorMessage: String?
+    @Published var firmware = "3.11.0"
+    @Published var connectionState: UInt8 = 3
+    @Published var audioMode: AudioMode = .highQuality
+    @Published var supportedCodecMask: UInt16 = 0x0007
+    @Published var sampleRate: UInt8 = 3
+    let connectionDescription = "Streaming audio"
+    let activeCodecDescription = "aptX Adaptive"
+    let qualityDescription = "24 bit / 96 kHz"
+
+    @discardableResult func refresh() async -> Bool { true }
+    @discardableResult func setAudioMode(_ mode: AudioMode) async -> Bool { true }
+    func setCodec(_ codec: Codec) async {}
+    func setConnected(_ connected: Bool) async {}
+}
+
+// MARK: - Mock AudioOutputSwitcher
+
+@MainActor
+final class AudioOutputSwitcher: ObservableObject {
+    @Published var outputName = "BTD 700"
+    @Published var shortcutError: String?
+    @Published var switching = false
+    @Published var dongleRate: Double? = 96_000
+    @Published var dongleRates: [Double] = [44_100, 48_000, 96_000]
+
+    func refresh() {}
+    func toggle() async {}
+    func setDongleRate(_ rate: Double) async throws {}
+}

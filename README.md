@@ -1,176 +1,152 @@
 # HDB 630 macOS Controls
 
-Native macOS menu bar app to control Sennheiser HDB 630 headphones and the BTD 700 dongle.
+Native macOS menu bar app for Sennheiser HDB 630 headphones and the BTD 700 USB dongle. No Sennheiser app, phone, or extra drivers needed.
 
-**Control + Option + S** (`⌃⌥S`) switches media output between the MacBook speakers and the USB BTD 700 from any app; a brief on-screen message confirms the selected output. If the dongle is unplugged, the shortcut selects the speakers. Microphone selection, per-device volume, and the system-alert output are preserved.
+| Headphones | Parametric EQ |
+| --- | --- |
+| <img src="screenshots/screenshot_popover.png" width="360" alt="Headphone controls"> | <img src="screenshots/screenshot_popover_peq.png" width="360" alt="Parametric EQ"> |
 
-Click the chart icon beside the Headphones and BTD 700 tabs to open **Signal Lab**. It shows the Mac-to-dongle USB audio format and timing, the dongle's Bluetooth codec, link format and transport, headphone wear state, and an RSSI history for the Mac-to-headphone control connection. See [the telemetry map](docs/07-signal-lab.md). Signal Lab also decodes the headphone streaming statistics and experimentally mapped usage counters ([investigation](docs/08-statistics.md)); telemetry stays on your Mac.
+| Headphone settings | BTD 700 | App settings |
+| --- | --- | --- |
+| <img src="screenshots/screenshot_settings.png" width="260" alt="Headphone settings"> | <img src="screenshots/screenshot_dongle.png" width="260" alt="BTD 700 controls"> | <img src="screenshots/screenshot_app_settings.png" width="260" alt="App settings and audio switch"> |
 
-**Headphones -> Settings -> Wireless audio** controls High Resolution directly from the Mac. Applying it restarts the headphones and restores the control connection. Music can then negotiate 24-bit/96 kHz; Video continues to use 48 kHz. [Protocol and validation](docs/09-wireless-resolution.md).
+## Features
 
-<p>
-  <img src="screenshots/screenshot_personal_audio_switch.jpg" width="360" alt="Audio output switch and Control Option S shortcut">
-  <img src="screenshots/screenshot_popover.png" width="260" alt="Headphone controls">
-  <img src="screenshots/screenshot_dongle.png" width="260" alt="BTD 700 controls">
-  <img src="screenshots/screenshot_popover_peq.png" width="260" alt="Parametric EQ controls">
-  <img src="screenshots/screenshot_settings.png" width="260" alt="Headphone settings">
-  <img src="screenshots/screenshot_app_settings.jpg" width="360" alt="App settings with launch at login enabled">
-</p>
+**Noise control**
+- Off / Adaptive / Manual modes, with a manual ANC-to-transparency balance (0-100)
+- Wind reduction (off/auto/max)
+- Undocumented Comfort ANC flag, tucked under an advanced disclosure (write/readback verified, acoustic effect unknown)
+
+**Sound**
+- Graphic EQ: 5 bands, presets (Neutral, Rock, Pop, Dance, Hip-Hop, Classical, Movie, Jazz), custom detection, bass boost
+- Parametric EQ: 5 stages with frequency, Q, gain, filter type, plus pre-gain and headroom
+- Podcast mode, crossfeed (off/low/high)
+- Codec display (SBC, AAC, aptX, aptX HD, aptX Adaptive, LC3)
+
+**Headphone settings**
+- High Resolution (24-bit/96 kHz) toggle; applying it restarts the headphones and reconnects automatically ([details](docs/09-wireless-resolution.md))
+- Call transparency (off + 4 levels), auto-pause, comfort call
+- On-head detection, smart pause, auto-answer, auto power off (off/15/30/60 min)
+- Battery and charging status, firmware, serial, multipoint connections (view-only)
+
+**BTD 700**
+- Connection state, firmware, active codec, link bit depth / sample rate
+- Music / Video modes: set both the dongle mode and the Mac USB output rate (96 / 48 kHz), then read both back
+- Manual Mac USB sample rate (44.1 / 48 / 96 kHz when offered)
+- Disconnect / reconnect headphones, preferred codec when more than one is offered
+- USB hotplug detection and recovery after sleep
+
+**App**
+- **Control + Option + S** switches the Mac's output between the built-in speakers and the BTD 700 from any app, with a short on-screen confirmation. Falls back to speakers if the dongle is unplugged. Microphone, per-device volume, and alert output are left alone.
+- **Signal Lab** (chart icon next to the tabs): live USB audio format, dongle codec/link/transport, headphone wear state, control-link RSSI history, decoded streaming statistics and usage counters. See the [telemetry map](docs/07-signal-lab.md) and [statistics investigation](docs/08-statistics.md). Everything stays on the Mac.
+- Launch at login via macOS login items
+- Reconnects to the headphones when their Mac Bluetooth link comes back and after wake. **Disconnect** pauses auto-reconnect until you connect again or restart the app.
+
+## Setup
+
+1. Pair the HDB 630 with the Mac in System Settings > Bluetooth. The **Headphones** tab needs this connection; the **BTD 700** tab only needs the dongle plugged in.
+2. Run `./tools/install-local.sh`. It builds a Release copy, signs it ad hoc, installs it to `~/Applications`, and launches it. Re-run after pulling changes.
+3. Click the gear next to the tabs and enable **Launch at login** if you want it there after every login.
+
+### Multipoint
+
+The BTD 700 carries audio: Mac -> USB -> dongle -> Bluetooth -> headphones. That gets you aptX Adaptive, which macOS Bluetooth doesn't offer. This app talks to the headphones over a **separate** Bluetooth Classic connection from the Mac, so dongle audio plus Mac control uses **both** of the HDB 630's multipoint slots (2 active connections, 3 paired devices).
+
+If the headphones are already connected to the dongle and a phone, disconnect the phone before pairing the Mac, otherwise the dongle may get dropped. Once the Mac is paired, the app opens its control channel without taking another slot. Without the dongle, regular Mac Bluetooth carries both audio and control over one connection.
 
 ## How it works
 
-Communicates with the headphones over Bluetooth Classic RFCOMM using the GAIA v3 protocol (Qualcomm). Despite the Airoha chipset, HDB 630 speaks GAIA v3 -- discovered through reverse engineering the mobile app and Sennheiser's desktop client. BTD 700 settings use its USB HID control interface directly through macOS IOKit; no extra driver or library is needed.
+The headphones speak Qualcomm GAIA v3 over Bluetooth Classic RFCOMM, despite the Airoha chipset. This was found by reverse engineering the mobile app and Sennheiser's desktop client ([story](docs/04-reverse-engineering.md)).
 
-Connection flow:
-1. SDP discovery to find the GAIA RFCOMM channel
-2. Open RFCOMM channel
+1. SDP discovery finds the GAIA RFCOMM channel
+2. Open the RFCOMM channel
 3. Register for push notifications (10 Sennheiser features + 1 Qualcomm)
 4. Fetch all device state
-5. Real-time updates via push notifications + 2-second polling for settings without notification support
+5. Live updates come from push notifications, plus 2-second polling (only while the popover is open) for settings that don't push
+
+Requests are serialized per command, so overlapping edits (e.g. two EQ bands) queue instead of colliding. Replies from a previous connection are discarded after a reconnect.
+
+The BTD 700 is controlled through its vendor USB HID interface via IOKit ([command map](docs/06-btd700-dongle.md)). The Mac USB sample rate and the output switch use Core Audio.
 
 ## Building
 
-Requires macOS 14+ and Xcode 15+.
+Requires macOS 14+ and Xcode 16+.
 
-```
+```sh
+xcodegen   # optional, regenerates HDB630Control.xcodeproj from project.yml
 open HDB630Control.xcodeproj
 ```
 
-Or with XcodeGen:
-```
-xcodegen && open HDB630Control.xcodeproj
-```
-
-Build and run. The app appears as a headphones icon in the menu bar.
-
-For everyday use, run `./tools/install-local.sh`. It builds, signs, and installs the app in `~/Applications`, then launches it. Run it again after pulling changes. Click the gear beside the Headphones and BTD 700 tabs, then enable **Launch at login**. The setting uses macOS's native login-item service and is available even when neither device is connected. If macOS requires approval, the app shows a link to Login Items.
-
-The **Headphones** tab requires pairing the HDB 630 directly to the Mac in System Settings > Bluetooth. This control connection can coexist with BTD 700 audio, but it occupies the headphones' second multipoint slot. The **BTD 700** tab works whenever the dongle is plugged into the Mac, even if the headphones are not paired to the Mac.
-
-The app reconnects to a paired HDB 630 when its Mac Bluetooth connection returns, checks again after wake, and detects BTD 700 USB removal and insertion. Choosing **Disconnect** in the Headphones tab pauses automatic reconnection until you connect again or restart the app. Audio through the dongle does not depend on the Mac Bluetooth control connection.
-
-If the headphones are already connected to both the dongle and a phone, disconnect the phone before pairing the Mac. Pairing a third active Bluetooth device may displace the dongle and interrupt audio. Once the Mac is connected, the app can open its control channel without taking another slot.
-
-To regenerate the headphone screenshots with mock data:
-```
-xcodebuild -project HDB630Control.xcodeproj -scheme ScreenshotMock -configuration Debug build && \
-  $(xcodebuild -project HDB630Control.xcodeproj -scheme ScreenshotMock -configuration Debug -showBuildSettings | grep -m1 BUILT_PRODUCTS_DIR | awk '{print $3}')/screenshot_mock screenshots
-```
-
-The BTD 700 screenshot shows a connected dongle running firmware 3.11.0. The app-settings screenshot was captured from the installed app with Launch at login enabled.
-
-## Tests
-
-Run the offline regression checks on macOS with Xcode installed:
+### Tests
 
 ```sh
 ./tools/test.sh
 ```
 
-The checks compile production parsing, request-session, controller, and audio-observation code. Recorded packet responses and simulated OS calls cover cancellation, reconnect isolation, malformed replies, and listener cleanup. They do not communicate with the headphones or dongle. Native app behavior and physical connections require separate verification.
+Offline checks compiled against the production sources: GAIA packets, the command session (FIFO, cancellation, late replies, teardown), headphone controller lifecycle, dongle status parsing, statistics parsing, and Core Audio rate observation. They use recorded responses and simulated OS calls and don't talk to real hardware.
 
-## Project Structure
+### Screenshots
+
+The images above are rendered from the real views with mock data:
+
+```sh
+xcodebuild -project HDB630Control.xcodeproj -scheme ScreenshotMock -configuration Debug -derivedDataPath build/mock build
+build/mock/Build/Products/Debug/screenshot_mock screenshots
+```
+
+## Project structure
 
 ```
 App/
-  AppDelegate.swift          -- Menu bar item, popover, polling, reconnect
+  AppDelegate.swift          -- Menu bar item, popover, polling, reconnect, Signal Lab window
   AudioOutputSwitcher.swift  -- Ctrl-Opt-S output switch, BTD 700 USB sample rate
   HDB630ControlApp.swift     -- SwiftUI app entry point
 Bluetooth/
-  Models.swift               -- Shared model types (ANCState, EQPreset, etc.)
-  GAIAProtocol.swift         -- GAIA v3 packet builder/parser
-  BluetoothManager.swift     -- SDP lookup, RFCOMM connection lifecycle
+  Models.swift               -- Shared model types (ANCState, EQPreset, statistics, etc.)
+  GAIAProtocol.swift         -- GAIA v3 packet builder/parser, command IDs
   GAIACommandSession.swift   -- GAIA framing, per-command FIFO, timeouts
-  HeadphoneController.swift  -- Device state + all get/set commands
+  BluetoothManager.swift     -- SDP lookup, RFCOMM connection lifecycle
+  HeadphoneController.swift  -- Headphone state + all get/set commands
   DongleController.swift     -- BTD 700 USB HID control and status
 UI/
   Components.swift           -- Shared UI components (CardSection)
-  StatusBarView.swift        -- Main popover (controls, EQ, PEQ)
-  SettingsWindow.swift       -- Settings page (call, general, device info)
-  DongleView.swift           -- BTD 700 controls and status
-  DiagnosticsView.swift      -- Signal Lab telemetry window
-
+  StatusBarView.swift        -- Headphones tab (noise control, EQ, PEQ)
+  SettingsWindow.swift       -- Headphone settings, app settings
+  DongleView.swift           -- BTD 700 tab
+  DiagnosticsView.swift      -- Signal Lab window
 tools/
-  MockController.swift         -- Mock stubs for screenshot generation
-  main.swift                   -- Headless screenshot renderer
-  cli_probe_commands.swift     -- CLI probe script used during RE
-  test.sh, test-*.swift        -- Offline regression checks
-  install-local.sh             -- Build, sign, install to ~/Applications
-  check-eq-persistence.sh      -- EQ persistence check across headphone reboots
-  cli_statistics.swift         -- Dump GAIA statistics
-
-docs/                          -- Protocol docs and RE guide
+  test.sh, test-*.swift      -- Offline regression checks
+  install-local.sh           -- Build, sign, install to ~/Applications
+  MockController.swift       -- Mock controllers for screenshots
+  main.swift                 -- Screenshot renderer
+  cli_probe_commands.swift   -- GAIA probe script used during RE
+  cli_statistics.swift       -- Dump GAIA statistics
+  check-eq-persistence.sh    -- Check EQ survives a headphone reboot
+docs/                        -- Protocol notes and RE write-ups
 ```
 
-## Features
+## Docs
 
-**Noise Control**
-- Noise-control modes: Off, Adaptive, Manual, with explanations in the app
-- Anti-Wind (off/max/auto); the app explains that Max wind filtering is not maximum overall ANC
-- Undocumented Comfort ANC flag under advanced controls, clearly marked as unverified acoustically
-- Transparency level (0-100)
+- [GAIA v3 protocol](docs/01-gaia-v3-protocol.md) and [command reference](docs/02-gaia-v3-commands.md)
+- [HDB 630 device config](docs/03-hdb630-device-config.md), [APK source map](docs/05-apk-source-map.md)
+- [Reverse engineering write-up](docs/04-reverse-engineering.md)
+- [BTD 700 HID interface](docs/06-btd700-dongle.md)
+- [Signal Lab telemetry](docs/07-signal-lab.md), [statistics](docs/08-statistics.md)
+- [Wireless High Resolution](docs/09-wireless-resolution.md)
+- [EQ feature status](docs/10-eq-feature-status.md)
 
-**Audio**
-- Preset EQ (Neutral, Rock, Pop, Dance, Hip-Hop, Classical, Movie, Jazz) with 5-band slider gains and custom detection
-- Parametric EQ (5-band PEQ with per-stage frequency, gain, Q, filter type, and pre-gain)
-- Bass boost
-- Podcast mode
-- Crossfeed (off/low/high)
-- Codec display (SBC, AAC, aptX, aptX HD, aptX Adaptive, LC3)
+## Known limitations
 
-**Call**
-- Call Transparency / sidetone (off + 4 levels)
-- Auto-Pause (pause audio when Call Transparency is active)
-- Comfort Call
-
-**Settings**
-- On-Head Detection (auto-disables Smart Pause, Auto-Answer, Auto Power Off when off)
-- Smart Pause
-- Auto-Answer Calls
-- Auto Power Off (off/15m/30m/60m)
-
-**Device Info**
-- Battery level + charging status
-- Firmware version, serial number
-- Connected devices (multipoint, view-only)
-
-**BTD 700**
-- Live connection state, firmware, active codec, and audio quality
-- Video / Music modes set both dongle transmission and Mac USB output to 48 / 96 kHz, with readback of the actual formats
-- Manual Mac USB sample-rate selection (44.1, 48, or 96 kHz when offered by the dongle)
-- Reconnect and disconnect controls
-- Codec choices when the connected headphones expose more than one option, with rejection errors shown if the dongle declines a request
-
-## Live validation
-
-On an HDB 630 and BTD 700 (firmware 3.11.0), the following controls were changed, read back from the device, and restored: ANC on/off; Anti-Wind Off/Max/Auto; the undocumented Comfort flag; Adaptive ANC; transparency; call and general settings; a graphic EQ band; each parametric EQ command type; crossfeed; dongle mode; and dongle disconnect/reconnect. This confirms protocol readback, not the audible effect of every setting. The Anti-Wind values are `0=Off`, `1=Max`, `2=Auto`. Crossfeed uses `0=Low`, `1=High`, `2=Off`.
-
-The app refreshes headset state after discrete writes and reports rejected commands. It also handles multi-stage PEQ notifications. The connected HDB 630 currently reports only aptX Adaptive as a dongle codec option, so codec switching across different headphones remains unverified. Firmware updates and Auracast broadcast configuration still use Sennheiser Dongle Control.
-
-## Known Limitations
-
-- Crossfeed, sidetone, auto-pause, on-head detection, smart pause, auto-answer, comfort call, and auto power off don't fire push notifications -- polled every 2 seconds while popover is open
-- BTD 700 USB dongle works for audio but control still goes directly to headphones via separate BT connection
-- Multipoint is intentionally view-only, to not cut own connection
-- Custom EQ presets created in the mobile app show as "Custom" -- headphones only store raw band gains, preset names live in the phone app's local storage
-- The dongle reports SBC, aptX and aptX Adaptive in High Quality mode; Gaming mode reported only aptX Adaptive in our tests. Codec selection requests can be rejected by firmware; the app displays that error.
-- Wireless 96 kHz requires High Resolution on the headphones. The app can read and change it under Headphones → Settings → Wireless audio, verify the write, restart the headphones and reconnect. Gaming/Video mode still uses 48 kHz. Always check the actual link format in Signal Lab.
-- Packet traces use private macOS unified debug logging.
-- Firmware updates and Auracast broadcast configuration remain in Sennheiser Dongle Control.
-
-## BTD 700 Dongle & Multipoint
-
-The BTD 700 USB-C dongle appears as a standard USB audio device and a vendor HID control interface. Audio goes: Mac -> USB -> dongle -> Bluetooth -> headphones. This gives you high-quality codecs (aptX Adaptive) that aren't available over regular macOS Bluetooth.
-
-Control (this app) connects directly to the headphones via a **separate** Bluetooth Classic connection. So if you want BTD 700 audio + this app from the same Mac, that's **both multipoint slots taken** -- no room for a third device (e.g. phone):
-
-1. BTD 700 dongle (audio, high-quality codec)
-2. Mac Bluetooth (RFCOMM control via this app)
-
-HDB 630 supports up to 2 simultaneous connections and 3 paired devices. Without the dongle, regular Mac Bluetooth handles both audio and control over a single connection, leaving one slot free for another device.
+- Crossfeed, sidetone, auto-pause, on-head detection, smart pause, auto-answer, comfort call, and auto power off don't send push notifications, so they're polled every 2 seconds while the popover is open
+- Multipoint is view-only, so the app can't cut its own connection
+- Custom EQ presets from the mobile app show as "Custom". The headphones store only band gains; preset names live in the phone app.
+- In High Quality mode the dongle reports SBC, aptX, and aptX Adaptive; Gaming mode reported only aptX Adaptive. Firmware can reject codec requests; the app shows the error.
+- 96 kHz wireless needs High Resolution enabled on the headphones and Music mode. Video always uses 48 kHz. Check the actual link format in the BTD 700 tab or Signal Lab.
+- Firmware updates and Auracast broadcast setup still need Sennheiser's apps
+- Settings were verified by write + readback on HDB 630 firmware 3.33.3 and BTD 700 firmware 3.11.0. That confirms the protocol, not the audible effect of every setting.
 
 ## License
 
 MIT
 
-BTD 700 controls, Signal Lab, and the transport rework were contributed by [steph4n-gh](https://github.com/steph4n-gh/signal-deck). BTD 700 HID command identifiers and report layout were informed by [sobalap/btd700ctl](https://github.com/sobalap/btd700ctl).
+BTD 700 controls, Signal Lab, and the transport rework were contributed by [steph4n-gh](https://github.com/steph4n-gh/signal-deck). BTD 700 HID command identifiers and report layout come from [sobalap/btd700ctl](https://github.com/sobalap/btd700ctl).

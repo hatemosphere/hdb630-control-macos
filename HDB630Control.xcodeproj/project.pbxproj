@@ -29,7 +29,7 @@
 		C94E0F86BD91C15FA26C8FC5 /* IOBluetooth.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2812FD6395C926D15DB7CBFE /* IOBluetooth.framework */; };
 		CA92BC1EAFB21A549AC1E4D0 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C076C73E466CFA4ADC2FA5AA /* IOKit.framework */; };
 		CEC52D738381EABEFFBD18A4 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF9F40CCE91F32109F3B1CEE /* AppDelegate.swift */; };
-		F7175FC9071571AEF7A3BC93 /* AudioOutputSwitcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 561F5C1E3E287ADAF62B1118 /* AudioOutputSwitcher.swift */; };
+		D31297BA9CA9BBA73EFAABEF /* DongleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6A5A4A3EDD27E9D44BB96D7 /* DongleView.swift */; };
 		F96CDC8833066AC884F56D7B /* HDB630ControlApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6288554D29F37F54ABAD731C /* HDB630ControlApp.swift */; };
 /* End PBXBuildFile section */
 
@@ -226,8 +226,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				F7175FC9071571AEF7A3BC93 /* AudioOutputSwitcher.swift in Sources */,
 				9270F13B96675277C224E7D8 /* Components.swift in Sources */,
+				D31297BA9CA9BBA73EFAABEF /* DongleView.swift in Sources */,
 				1589C9582B59B1A926F54A61 /* MockController.swift in Sources */,
 				B20EA258B680EDE4BE606947 /* Models.swift in Sources */,
 				6FF0A96E23F3BD8B40F77C49 /* SettingsWindow.swift in Sources */,

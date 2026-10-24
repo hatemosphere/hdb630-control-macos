@@ -34,9 +34,9 @@ targets:
     type: tool
     platform: macOS
     sources:
-      - path: App/AudioOutputSwitcher.swift
       - path: Bluetooth/Models.swift
       - path: UI/Components.swift
+      - path: UI/DongleView.swift
       - path: UI/SettingsWindow.swift
       - path: UI/StatusBarView.swift
       - path: tools/MockController.swift

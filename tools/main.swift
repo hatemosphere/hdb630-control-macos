@@ -1,7 +1,6 @@
 // Screenshot generator for HDB630Control.
-// Renders the real UI views with mock data via screencapture.
-// Build: xcodegen && xcodebuild -scheme ScreenshotMock -configuration Debug build
-// Usage: ./screenshot_mock [output_dir]   (default: screenshots/)
+// Renders the real UI views with mock data.
+// Build and usage: see README "Screenshots".
 
 import AppKit
 import SwiftUI
@@ -31,74 +30,77 @@ func renderToPNG<V: View>(_ view: V, width: CGFloat, filename: String, outputDir
     hosting.layoutSubtreeIfNeeded()
     RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.5))
 
+    // Render in-process; screencapture needs Screen Recording permission.
+    guard let rep = hosting.bitmapImageRepForCachingDisplay(in: hosting.bounds) else { return false }
+    hosting.cacheDisplay(in: hosting.bounds, to: rep)
     let path = (outputDir as NSString).appendingPathComponent(filename)
-    let proc = Process()
-    proc.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
-    proc.arguments = ["-l\(window.windowNumber)", "-o", "-r", path]
-    try? proc.run()
-    proc.waitUntilExit()
-
-    let ok = proc.terminationStatus == 0
+    let ok = (try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: path))) != nil
     window.close()
     return ok
 }
 
+// Matches the popover chrome in AppDelegate's ControlRootView.
+@MainActor
+func panel<V: View>(_ view: V, height: CGFloat) -> some View {
+    view
+        .frame(width: 360, height: height, alignment: .top)
+        .background {
+            LinearGradient(
+                colors: [ControlStyle.background, Color(red: 0.09, green: 0.14, blue: 0.19)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        }
+        .preferredColorScheme(.dark)
+        .tint(ControlStyle.accent)
+}
+
 @MainActor
 func main() {
-    let outputDir: String
-    if CommandLine.arguments.count > 1 {
-        outputDir = CommandLine.arguments[1]
-    } else {
-        outputDir = "screenshots"
-    }
+    let outputDir = CommandLine.arguments.count > 1 ? CommandLine.arguments[1] : "screenshots"
 
     let app = NSApplication.shared
     app.setActivationPolicy(.accessory)
+    // Key/active window so controls render in their active (accent) state.
+    app.activate(ignoringOtherApps: true)
 
     try? FileManager.default.createDirectory(atPath: outputDir, withIntermediateDirectories: true)
 
     let controller = HeadphoneController()
     let bluetooth = BluetoothManager()
-    bluetooth.state = .connected
+    let dongle = DongleController()
+    let outputSwitcher = AudioOutputSwitcher()
     controller.deviceInfo.name = "HDB 630"
-    controller.deviceInfo.codec = "aptX Adaptive"
     controller.batteryLevel = 75
-    controller.ancEnabled = true
-    controller.ancState.adaptive = true
 
-    // 1. Popover — Equalizer mode
-    let popover = StatusBarView(controller: controller, bluetooth: bluetooth)
-        .frame(width: 360, height: 610)
-        .background(ControlStyle.background)
-        .tint(ControlStyle.accent)
-    if renderToPNG(popover, width: 360, filename: "screenshot_popover.png", outputDir: outputDir) {
-        print("Wrote \(outputDir)/screenshot_popover.png")
-    } else {
-        print("ERROR: Failed to render popover")
-        Foundation.exit(1)
+    let shots: [(String, AnyView)] = [
+        ("screenshot_popover.png",
+         AnyView(panel(StatusBarView(controller: controller, bluetooth: bluetooth), height: 690))),
+        ("screenshot_settings.png",
+         AnyView(panel(ScrollView { SettingsView(controller: controller, bluetooth: bluetooth,
+                                                 showSettings: .constant(true)).padding(16) },
+                       height: 745))),
+        ("screenshot_dongle.png",
+         AnyView(panel(DongleView(dongle: dongle).environmentObject(outputSwitcher), height: 560))),
+        ("screenshot_app_settings.png",
+         AnyView(panel(AppSettingsView().environmentObject(outputSwitcher), height: 335))),
+    ]
+    for (filename, view) in shots {
+        guard renderToPNG(view, width: 360, filename: filename, outputDir: outputDir) else {
+            print("ERROR: Failed to render \(filename)")
+            Foundation.exit(1)
+        }
+        print("Wrote \(outputDir)/\(filename)")
     }
 
-    // 2. Settings view
-    let settings = SettingsView(controller: controller, bluetooth: bluetooth, showSettings: .constant(true))
-    if renderToPNG(settings, width: 320, filename: "screenshot_settings.png", outputDir: outputDir) {
-        print("Wrote \(outputDir)/screenshot_settings.png")
-    } else {
-        print("ERROR: Failed to render settings")
-        Foundation.exit(1)
-    }
-
-    // 3. Popover — Parametric EQ mode
+    controller.ancEnabled = false
     controller.audioMode = .parametricEq
-    let popoverPEQ = StatusBarView(controller: controller, bluetooth: bluetooth)
-        .frame(width: 360, height: 610)
-        .background(ControlStyle.background)
-        .tint(ControlStyle.accent)
-    if renderToPNG(popoverPEQ, width: 360, filename: "screenshot_popover_peq.png", outputDir: outputDir) {
-        print("Wrote \(outputDir)/screenshot_popover_peq.png")
-    } else {
-        print("ERROR: Failed to render popover (PEQ)")
+    let peq = panel(StatusBarView(controller: controller, bluetooth: bluetooth), height: 890)
+    guard renderToPNG(peq, width: 360, filename: "screenshot_popover_peq.png", outputDir: outputDir) else {
+        print("ERROR: Failed to render screenshot_popover_peq.png")
         Foundation.exit(1)
     }
+    print("Wrote \(outputDir)/screenshot_popover_peq.png")
 }
 
 MainActor.assumeIsolated {
