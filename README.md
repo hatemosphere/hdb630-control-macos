@@ -90,7 +90,7 @@ Offline checks compiled against the production sources: GAIA packets, the comman
 The images above are rendered from the real views with mock data:
 
 ```sh
-xcodebuild -project HDB630Control.xcodeproj -scheme ScreenshotMock -configuration Debug -derivedDataPath build/mock build
+xcodebuild -project HDB630Control.xcodeproj -scheme ScreenshotMock -configuration Debug -destination 'generic/platform=macOS' -derivedDataPath build/mock build
 build/mock/Build/Products/Debug/screenshot_mock screenshots
 ```
 

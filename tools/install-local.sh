@@ -10,7 +10,7 @@ trap 'rm -f "$build_log"' EXIT
 
 echo "Building HDB 630 Control…"
 if ! xcodebuild -quiet -project "$repo/HDB630Control.xcodeproj" -scheme HDB630Control \
-  -configuration Release -destination 'platform=macOS' -derivedDataPath "$build_dir" \
+  -configuration Release -destination 'generic/platform=macOS' -derivedDataPath "$build_dir" \
   CODE_SIGNING_ALLOWED=NO build >"$build_log" 2>&1; then
   tail -80 "$build_log" >&2
   exit 1
