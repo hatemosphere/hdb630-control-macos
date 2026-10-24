@@ -203,21 +203,18 @@ final class BluetoothManager: NSObject, ObservableObject {
             default: break
             }
         }
-        if let channelID = findGAIAChannel(device) {
+        // Always re-query SDP: the headphones can move GAIA to another RFCOMM channel after a restart
+        // (seen 15 -> 2), and opening a stale cached channel just times out. Fall back to the cache
+        // only when a fresh query can't run.
+        guard pendingSDP == nil, device.performSDPQuery(attempt.delegate) == kIOReturnSuccess else {
+            guard let channelID = findGAIAChannel(device) else {
+                endConnection(as: .failed("Bluetooth service discovery could not start. Try again shortly."))
+                return
+            }
             openRFCOMM(attempt: attempt, channelID: channelID)
-        } else {
-            guard pendingSDP == nil else {
-                endConnection(as: .failed("Bluetooth service discovery is still pending. Try again after it completes."))
-                return
-            }
-            pendingSDP = attempt
-            let result = device.performSDPQuery(attempt.delegate)
-            guard result == kIOReturnSuccess else {
-                pendingSDP = nil
-                endConnection(as: .failed("Bluetooth service discovery could not start: \(result)"))
-                return
-            }
+            return
         }
+        pendingSDP = attempt
     }
 
     fileprivate func sdpQueryComplete(id: UUID, device: IOBluetoothDevice, status: IOReturn) {
@@ -225,7 +222,8 @@ final class BluetoothManager: NSObject, ObservableObject {
         pendingSDP = nil
         guard generation == id, case .discovering(let attempt) = lifecycle,
               attempt.id == id, device === attempt.device else { return }
-        guard status == kIOReturnSuccess, let channelID = findGAIAChannel(device) else {
+        // A failed query leaves the cached records in place, so findGAIAChannel falls back to them.
+        guard let channelID = findGAIAChannel(device) else {
             endConnection(as: .failed("GAIA service not found. Try re-pairing headphones."))
             return
         }
