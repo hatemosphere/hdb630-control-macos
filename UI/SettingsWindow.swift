@@ -102,6 +102,7 @@ struct SettingsView: View {
     @ObservedObject var controller: HeadphoneController
     @ObservedObject var bluetooth: BluetoothManager
     @Binding var showSettings: Bool
+    @State private var deviceToRemove: PairedDevice?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -295,9 +296,39 @@ struct SettingsView: View {
                                         .font(.caption)
                                         .foregroundStyle(.blue)
                                 }
+                                if device.index == controller.ownDeviceIndex {
+                                    Color.clear.frame(width: 18, height: 1) // keeps checkmarks aligned
+                                } else {
+                                    Menu {
+                                        Button(device.isConnected ? "Disconnect" : "Connect") {
+                                            Task {
+                                                await controller.managePairedDevice(
+                                                    device.index, device.isConnected ? .disconnect : .connect)
+                                            }
+                                        }
+                                        Divider()
+                                        Button("Forget Device…", role: .destructive) { deviceToRemove = device }
+                                    } label: {
+                                        Image(systemName: "ellipsis.circle")
+                                    }
+                                    .menuStyle(.borderlessButton)
+                                    .menuIndicator(.hidden)
+                                    .frame(width: 18)
+                                    .accessibilityLabel("Manage \(device.name)")
+                                }
                             }
                             .padding(.vertical, 1)
                         }
+                    }
+                    .confirmationDialog("Forget \(deviceToRemove?.name ?? "device")?",
+                                        isPresented: Binding(get: { deviceToRemove != nil },
+                                                             set: { if !$0 { deviceToRemove = nil } }),
+                                        presenting: deviceToRemove) { device in
+                        Button("Forget", role: .destructive) {
+                            Task { await controller.managePairedDevice(device.index, .remove) }
+                        }
+                    } message: { _ in
+                        Text("The headphones unpair it. It has to pair again before it can reconnect.")
                     }
                 }
 

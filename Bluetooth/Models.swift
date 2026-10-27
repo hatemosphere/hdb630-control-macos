@@ -206,6 +206,17 @@ enum PEQFilterType: Int, CaseIterable, Identifiable {
 
     var id: Int { rawValue }
 
+    /// Filters Sennheiser's app offers for HDB 630; the rest of the firmware enum is untested.
+    static let selectable: [PEQFilterType] = [.peq, .lowShelfSecondOrder, .highShelfSecondOrder, .bypass]
+
+    /// Q limits from the HDB 630 PEQ config (q_min, q_max, high_low_shelf_q_max).
+    var qRange: ClosedRange<Double> {
+        switch self {
+        case .lowShelfFirstOrder, .highShelfFirstOrder, .lowShelfSecondOrder, .highShelfSecondOrder: 0.25...0.71
+        default: 0.25...8
+        }
+    }
+
     var label: String {
         switch self {
         case .gain: return "Gain"
@@ -238,6 +249,11 @@ struct EQConfig: Equatable {
     var bands: Int = 5
     var minGainDB: Double = -6.0    // dB (signed byte ÷ 10)
     var maxGainDB: Double = 6.0     // dB (signed byte ÷ 10)
+    static let preGainRange: ClosedRange<Double> = -12...0 // min_master_gain; pre-gain only cuts
+}
+
+enum PairedDeviceAction {
+    case connect, disconnect, remove
 }
 
 struct PairedDevice: Identifiable, Equatable {

@@ -353,7 +353,7 @@ struct HeadphoneControllerTests {
     static func eqInputRanges() async {
         let (manager, controller) = await ready()
         controller.setPreGain(-358.5)
-        precondition(controller.preGainDB == -6, "Pre-gain escaped the supported gain range")
+        precondition(controller.preGainDB == -12, "Pre-gain escaped the supported range")
         controller.setEQBand(0, gain: -99)
         controller.setEQBand(1, gain: 99)
         controller.setPEQFrequency(1, hz: -1)
@@ -363,19 +363,48 @@ struct HeadphoneControllerTests {
         precondition(controller.eqGains.prefix(2) == [-6, 6])
         precondition(controller.peqStages[1].frequency == 20)
         precondition(controller.peqStages[4].frequency == 20_000)
-        precondition(controller.peqStages[2].q == 10)
+        precondition(controller.peqStages[2].q == 8)
         precondition(controller.peqStages[3].gain == 6)
         controller.setPreGain(.nan)
         controller.setEQBand(0, gain: .infinity)
         controller.setPEQQ(2, q: -.infinity)
         controller.setPEQGain(3, db: .nan)
         try? await Task.sleep(nanoseconds: 200_000_000)
-        precondition(manager.writes(GAIAProtocol.cmdSetPreGain) == [[255, 196]])
+        precondition(manager.writes(GAIAProtocol.cmdSetPreGain) == [[255, 136]])
         precondition(Set(manager.writes(GAIAProtocol.cmdSetEQBand)) == Set([[0, 196], [1, 60]]))
         precondition(Set(manager.writes(GAIAProtocol.cmdSetStageFrequency)) == Set([[1, 0, 20], [4, 78, 32]]))
-        precondition(manager.writes(GAIAProtocol.cmdSetStageQ) == [[2, 160, 0]])
+        precondition(manager.writes(GAIAProtocol.cmdSetStageQ) == [[2, 128, 0]])
         precondition(manager.writes(GAIAProtocol.cmdSetStageGain) == [[3, 0, 60]])
+
+        // Positive pre-gain is not allowed, and switching a Q=8 bell to a shelf clamps Q to 0.71.
+        controller.setPreGain(3)
+        precondition(controller.preGainDB == 0)
+        await controller.setPEQFilterType(2, type: .lowShelfSecondOrder)
+        try? await Task.sleep(nanoseconds: 200_000_000)
+        precondition(controller.peqStages[2].q == 0.71)
+        precondition(manager.writes(GAIAProtocol.cmdSetStageQ).last == [2, 11, 92])
         print("PASS EQ/PEQ inputs stay in supported ranges and nonfinite edits send nothing")
+    }
+
+    @MainActor
+    static func pairedDeviceManagement() async {
+        let (manager, controller) = await ready()
+        controller.ownDeviceIndex = 0
+        let listReads = manager.writes(GAIAProtocol.cmdGetPairedDeviceListSize).count
+        await controller.managePairedDevice(0, .disconnect)
+        await controller.managePairedDevice(0, .remove)
+        precondition(manager.writes(GAIAProtocol.cmdDisconnectDevice).isEmpty
+                     && manager.writes(GAIAProtocol.cmdRemoveDevice).isEmpty,
+                     "The Mac's own slot must never be disconnected or forgotten")
+        await controller.managePairedDevice(1, .disconnect)
+        await controller.managePairedDevice(1, .connect)
+        await controller.managePairedDevice(1, .remove)
+        precondition(manager.writes(GAIAProtocol.cmdDisconnectDevice) == [[1]])
+        precondition(manager.writes(GAIAProtocol.cmdConnectDevice) == [[1]])
+        precondition(manager.writes(GAIAProtocol.cmdRemoveDevice) == [[1]])
+        precondition(manager.writes(GAIAProtocol.cmdGetPairedDeviceListSize).count == listReads + 3,
+                     "Each accepted action refreshes the device list")
+        print("PASS paired-device actions target other devices only and refresh the list")
     }
 
     @MainActor
@@ -411,6 +440,7 @@ struct HeadphoneControllerTests {
         }
         await peqNotificationByteOrder()
         await eqInputRanges()
+        await pairedDeviceManagement()
         await presetCancelsBandEdits()
         await malformedCount()
         await missedConnectionNotifications()

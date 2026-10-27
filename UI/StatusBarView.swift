@@ -195,7 +195,8 @@ private struct ANCSection: View {
             .foregroundStyle(.secondary)
             .fixedSize(horizontal: false, vertical: true)
 
-        if controller.ancEnabled {
+        // Like Sennheiser's app: wind and comfort only apply in Manual; Adaptive manages them itself.
+        if controller.noiseControlMode == .custom {
             VStack(alignment: .leading, spacing: 6) {
                 Text("Wind reduction")
                     .font(.system(size: 12, weight: .medium))
@@ -214,12 +215,6 @@ private struct ANCSection: View {
                     .font(.system(size: 10))
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
-                if controller.ancState.adaptive {
-                    Text("Adaptive ANC is also changing cancellation. Use Manual to compare wind settings consistently.")
-                        .font(.system(size: 10))
-                        .foregroundStyle(ControlStyle.accent.opacity(0.85))
-                        .fixedSize(horizontal: false, vertical: true)
-                }
             }
 
             DisclosureGroup("Undocumented ANC setting", isExpanded: $showExperimental) {
@@ -362,7 +357,7 @@ private struct PEQControls: View {
                     get: { controller.preGainDB },
                     set: { controller.setPreGain($0) }
                 ),
-                in: controller.eqConfig.minGainDB...controller.eqConfig.maxGainDB,
+                in: EQConfig.preGainRange,
                 step: 0.5
             )
             .accessibilityLabel("PEQ pre-gain")
@@ -413,7 +408,9 @@ private struct PEQStageRow: View {
                     get: { stageBinding.filterType },
                     set: { type in Task { await controller.setPEQFilterType(stage, type: type) } }
                 )) {
-                    ForEach(PEQFilterType.allCases) { type in
+                    // Keep a type set elsewhere visible even if we don't offer it.
+                    ForEach(PEQFilterType.selectable.contains(stageBinding.filterType)
+                            ? PEQFilterType.selectable : [stageBinding.filterType] + PEQFilterType.selectable) { type in
                         Text(type.label).tag(type)
                     }
                 }
@@ -455,7 +452,7 @@ private struct PEQStageRow: View {
                             get: { stageBinding.q },
                             set: { controller.setPEQQ(stage, q: $0) }
                         ),
-                        in: 0.1...10.0
+                        in: stageBinding.filterType.qRange
                     )
                     .accessibilityLabel("PEQ band \(stage + 1) Q")
                     Text(String(format: "%.2f", stageBinding.q))

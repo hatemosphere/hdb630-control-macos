@@ -171,6 +171,9 @@ On-Head Detection controls the proximity sensor. Disabling it automatically disa
 |---------|------|---------|----------|-------|
 | Get Paired Device Count | 0x1400 | - | [count_BE 2B] | Big-endian uint16 |
 | Get Device Info | 0x1401 | [index] | [idx, priority, connStatus, name...] | connStatus: 0=disconnected, 1=connected |
+| Connect Device | 0x1402 | [index] | ack | Error reply 0x1582 if refused |
+| Disconnect Device | 0x1403 | [index] | ack | Error reply 0x1583 if refused |
+| Remove (unpair) Device | 0x1405 | [index] | ack | Error reply 0x1585 if refused |
 | Get Connection Status | 0x1404 | [index] | [idx, status] | |
 | Get Own Device Index | 0x1407 | - | [index] | Which slot "this device" occupies |
 | Get Max BT Connections | 0x1409 | - | [max] | Returns 2 on HDB 630 |

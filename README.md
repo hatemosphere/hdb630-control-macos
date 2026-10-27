@@ -14,12 +14,12 @@ Native macOS menu bar app for Sennheiser HDB 630 headphones and the BTD 700 USB 
 
 **Noise control**
 - Off / Adaptive / Manual modes, with a manual ANC-to-transparency balance (0-100)
-- Wind reduction (off/auto/max)
+- Wind reduction (off/auto/max), shown in Manual only like Sennheiser's app (Adaptive manages it)
 - Undocumented Comfort ANC flag, tucked under an advanced disclosure (write/readback verified, acoustic effect unknown)
 
 **Sound**
 - Graphic EQ: 5 bands, presets (Neutral, Rock, Pop, Dance, Hip-Hop, Classical, Movie, Jazz), custom detection, bass boost
-- Parametric EQ: 5 stages with frequency, Q, gain, filter type, plus pre-gain and headroom
+- Parametric EQ: 5 stages (Bell / low shelf / high shelf / bypass) with frequency, Q, gain, plus pre-gain (-12..0 dB) and headroom; ranges match Sennheiser's HDB 630 config
 - Podcast mode, crossfeed (off/low/high)
 - Codec display (SBC, AAC, aptX, aptX HD, aptX Adaptive, LC3)
 
@@ -27,7 +27,8 @@ Native macOS menu bar app for Sennheiser HDB 630 headphones and the BTD 700 USB 
 - High Resolution (24-bit/96 kHz) toggle; applying it restarts the headphones and reconnects automatically ([details](docs/09-wireless-resolution.md))
 - Call transparency (off + 4 levels), auto-pause, comfort call
 - On-head detection, smart pause, auto-answer, auto power off (off/15/30/60 min)
-- Battery and charging status, firmware, serial, multipoint connections (view-only)
+- Battery and charging status, firmware, serial
+- Paired devices: see which are connected, connect / disconnect / forget other devices (the Mac's own slot is protected)
 
 **BTD 700**
 - Connection state, firmware, active codec, link bit depth / sample rate
@@ -138,7 +139,6 @@ docs/                        -- Protocol notes and RE write-ups
 ## Known limitations
 
 - Crossfeed, sidetone, auto-pause, on-head detection, smart pause, auto-answer, comfort call, and auto power off don't send push notifications, so they're polled every 2 seconds while the popover is open
-- Multipoint is view-only, so the app can't cut its own connection
 - Custom EQ presets from the mobile app show as "Custom". The headphones store only band gains; preset names live in the phone app.
 - In High Quality mode the dongle reports SBC, aptX, and aptX Adaptive; Gaming mode reported only aptX Adaptive. The dongle switches to one codec at a time; there is no automatic codec choice over USB.
 - 96 kHz wireless needs High Resolution enabled on the headphones and Music mode. Video always uses 48 kHz. Check the actual link format in the BTD 700 tab or Signal Lab.

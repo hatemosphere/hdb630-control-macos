@@ -93,6 +93,7 @@ final class HeadphoneController: ObservableObject {
     func setSmartPause(_ on: Bool) async {}
     func setAutoCall(_ on: Bool) async {}
     func setAutoPowerOff(minutes: Int) async {}
+    func managePairedDevice(_ index: Int, _ action: PairedDeviceAction) async {}
 }
 
 // MARK: - Mock DongleController

@@ -700,7 +700,8 @@ final class HeadphoneController: ObservableObject {
 
     func setPEQQ(_ stage: Int, q: Double) {
         guard stage >= 0, stage < 5, q.isFinite else { return }
-        let q = min(max(q, 0.1), 10)
+        let range = peqStages[stage].filterType.qRange
+        let q = min(max(q, range.lowerBound), range.upperBound)
         peqStages[stage].q = q
         let raw = UInt16(clamping: Int(round(q * 4096.0)))
         debouncePEQ(key: "q\(stage)") {
@@ -728,12 +729,14 @@ final class HeadphoneController: ObservableObject {
         peqStages[stage].filterType = type
         let succeeded = await writeSetting(GAIAProtocol.cmdSetStageFilterType,
                                            payload: [UInt8(stage), UInt8(type.rawValue)])
-        if !succeeded { await fetchPEQ() }
+        guard succeeded else { await fetchPEQ(); return }
+        // Shelves allow a narrower Q than bells; pull the current Q into the new filter's range.
+        if !type.qRange.contains(peqStages[stage].q) { setPEQQ(stage, q: peqStages[stage].q) }
     }
 
     func setPreGain(_ db: Double) {
         guard db.isFinite else { return }
-        let db = min(max(db, eqConfig.minGainDB), eqConfig.maxGainDB)
+        let db = min(max(db, EQConfig.preGainRange.lowerBound), EQConfig.preGainRange.upperBound)
         preGainDB = db
         let raw = Int16(clamping: Int(round(db * 10.0)))
         let unsigned = UInt16(bitPattern: raw)
@@ -772,6 +775,18 @@ final class HeadphoneController: ObservableObject {
     }
 
     // MARK: - Paired Device List
+
+    /// The Mac's own slot is excluded: dropping it would cut this control connection.
+    func managePairedDevice(_ index: Int, _ action: PairedDeviceAction) async {
+        guard index != ownDeviceIndex, (0...255).contains(index) else { return }
+        let command = switch action {
+        case .connect: GAIAProtocol.cmdConnectDevice
+        case .disconnect: GAIAProtocol.cmdDisconnectDevice
+        case .remove: GAIAProtocol.cmdRemoveDevice
+        }
+        guard await writeSetting(command, payload: [UInt8(index)]) else { return }
+        await fetchDeviceList()
+    }
 
     func fetchDeviceList() async {
         let generation = connectionGeneration

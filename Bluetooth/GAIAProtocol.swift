@@ -100,6 +100,9 @@ enum GAIAProtocol {
     // Paired device list
     static let cmdGetPairedDeviceListSize: UInt16 = 0x1400  // response: UINT16 count
     static let cmdGetDeviceInfo: UInt16 = 0x1401            // payload=[index], response: [index, priority, connStatus, name...]
+    static let cmdConnectDevice: UInt16 = 0x1402            // payload=[index]
+    static let cmdDisconnectDevice: UInt16 = 0x1403         // payload=[index]
+    static let cmdRemoveDevice: UInt16 = 0x1405             // payload=[index], unpairs it
     static let cmdGetConnectionStatus: UInt16 = 0x1404      // payload=[index], response: [index, status], notification: 0x1484
     static let cmdGetOwnDeviceIndex: UInt16 = 0x1407        // response: UINT8 index
     static let cmdGetMaxBTConnections: UInt16 = 0x1409      // response: UINT8 max
